@@ -51,11 +51,16 @@ api.interceptors.response.use(
           localStorage.setItem("refresh_token", refresh_token);
 
           // Update header untuk request yang diulang
+          // Menggunakan cara yang lebih aman untuk AxiosHeaders
           if (originalRequest.headers) {
-            originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+            if (typeof originalRequest.headers.set === 'function') {
+              originalRequest.headers.set('Authorization', `Bearer ${access_token}`);
+            } else {
+              originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+            }
           }
 
-          // Ulangi request awal dengan token baru
+          // Pastikan config baru menggunakan token terbaru
           return api(originalRequest);
         }
       } catch (refreshError) {

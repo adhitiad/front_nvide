@@ -32,8 +32,8 @@ export default function StreamsPage() {
     try {
       setLoading(true);
       const data = await api.get("/streams/live") as any;
-      // Asumsi backend mereturn data berupa list atau object dengan field streams
-      setStreams(Array.isArray(data) ? data : data.streams || []);
+      // Handle null or undefined data
+      setStreams(Array.isArray(data) ? data : (data?.streams || []));
     } catch (err) {
       console.error("Gagal memuat stream", err);
       setStreams([]); // Fallback

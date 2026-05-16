@@ -34,7 +34,7 @@ export default function SocialPage() {
     try {
       setLoading(true);
       const data = await api.get("/vods") as any;
-      setVods(Array.isArray(data) ? data : data.vods || []);
+      setVods(Array.isArray(data) ? data : (data?.vods || []));
     } catch (err) {
       console.error("Gagal memuat konten sosial", err);
       setVods([]);
