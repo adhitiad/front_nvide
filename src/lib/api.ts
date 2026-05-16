@@ -33,22 +33,33 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem("refresh_token");
-        if (!refreshToken) throw new Error("No refresh token");
+        if (!refreshToken) {
+          console.warn("No refresh token found, logging out...");
+          throw new Error("No refresh token");
+        }
 
+        console.log("Token expired, attempting refresh...");
         const res = await axios.post(`${API_URL}/auth/refresh`, {
           refresh_token: refreshToken,
         });
 
         if (res.status === 200) {
           const { access_token, refresh_token } = res.data;
+          console.log("Token refresh successful!");
+          
           localStorage.setItem("access_token", access_token);
           localStorage.setItem("refresh_token", refresh_token);
 
+          // Update header untuk request yang diulang
+          if (originalRequest.headers) {
+            originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+          }
+
           // Ulangi request awal dengan token baru
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return api(originalRequest);
         }
       } catch (refreshError) {
+        console.error("Refresh token failed:", refreshError);
         // Jika refresh gagal, logout paksa
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
