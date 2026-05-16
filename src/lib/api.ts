@@ -66,12 +66,12 @@ export default api;
 // Fungsi-fungsi pembantu untuk kompatibilitas kode lama
 export async function login(email: string, password: string) {
   const res = await api.post("/auth/login", { email, password });
-  return res.data;
+  return res;
 }
 
 export async function register(username: string, email: string, password: string) {
   const res = await api.post("/auth/register", { username, email, password });
-  return res.data;
+  return res;
 }
 
 // Gunakan 'api' langsung untuk request lainnya, contoh:
