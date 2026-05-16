@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function StreamsPage() {
+  const router = useRouter();
   const [streams, setStreams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -168,7 +170,11 @@ export default function StreamsPage() {
                   <CardDescription className="text-neutral-400">{stream.host?.username || stream.host_id || "Unknown Host"}</CardDescription>
                 </CardHeader>
                 <CardFooter className="p-4 pt-4">
-                  <Button variant="secondary" className="w-full bg-white text-black hover:bg-neutral-200">
+                  <Button 
+                    onClick={() => router.push(`/dashboard/streams/${stream.id}/watch`)}
+                    variant="secondary" 
+                    className="w-full bg-white text-black hover:bg-neutral-200"
+                  >
                     <Play className="mr-2 h-4 w-4" />
                     Tonton
                   </Button>

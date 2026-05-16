@@ -6,7 +6,8 @@ import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, Settings, Users, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, Settings, Users, MessageSquare, ExternalLink } from "lucide-react";
+import { useWebRTC } from "@/hooks/useWebRTC";
 
 export default function WebRTCStreamRoom() {
   const params = useParams();
@@ -22,19 +23,28 @@ export default function WebRTCStreamRoom() {
 
   // Chat State
   const [messages, setMessages] = useState<any[]>([]);
+  const [streamInfo, setStreamInfo] = useState<any>(null);
   const [messageInput, setMessageInput] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // WebRTC Hook for Broadcaster
+  const { isConnected: isWebRTCConnected } = useWebRTC({
+    streamId,
+    role: 'host',
+    localStream: isLive ? localStream : null // Hanya connect jika sudah LIVE
+  });
+
   // Setup Kamera
   useEffect(() => {
+    let stream: MediaStream | null = null;
     async function setupCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: 1280, height: 720 }, 
+          audio: true 
+        });
         setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
       } catch (err) {
         console.error("Gagal mengakses kamera/mikrofon", err);
       }
@@ -42,12 +52,19 @@ export default function WebRTCStreamRoom() {
     setupCamera();
 
     return () => {
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Update video element srcObject when localStream changes
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
 
   // Setup WebSocket untuk Live Chat Room
   useEffect(() => {
@@ -111,13 +128,13 @@ export default function WebRTCStreamRoom() {
 
   const handleStartBroadcast = async () => {
     try {
-      await api.post(`/streams/${streamId}/start`);
+      const data = await api.post(`/streams/${streamId}/start`) as any;
       setIsLive(true);
-      // Notifikasi ke chat bahwa stream dimulai
+      setStreamInfo(data); // Update stream info with Mux keys
       setMessages(prev => [...prev, { system: true, message: "Siaran langsung telah dimulai!" }]);
     } catch (err) {
       console.error("Gagal memulai broadcast", err);
-      alert("Gagal terhubung ke server WebRTC. Pastikan stream valid.");
+      alert("Gagal terhubung ke server. Pastikan stream valid.");
     }
   };
 
@@ -169,29 +186,57 @@ export default function WebRTCStreamRoom() {
       
       {/* KIRI: VIDEO PLAYER UTAMA & KONTROL */}
       <div className="flex-1 flex flex-col space-y-4">
-        <div className="flex justify-between items-center bg-neutral-900 p-4 rounded-xl border border-neutral-800">
-          <div>
-            <h1 className="text-xl font-bold text-white flex items-center">
-              Room: <span className="text-indigo-400 ml-2">{streamId}</span>
+        <div className="flex flex-col gap-4 bg-neutral-900 p-6 rounded-xl border border-neutral-800">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-xl font-bold text-white flex items-center">
+                Room: <span className="text-indigo-400 ml-2">{streamId}</span>
+                {isLive && (
+                  <span className="ml-4 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
+                    LIVE BROADCASTING
+                  </span>
+                )}
+              </h1>
+              <p className="text-sm text-neutral-400">Gunakan browser atau software seperti OBS untuk mengudara</p>
+            </div>
+            <div className="flex gap-2">
               {isLive && (
-                <span className="ml-4 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
-                  LIVE BROADCASTING
-                </span>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.open(`/dashboard/streams/${streamId}/watch`, '_blank')}
+                  className="border-neutral-700 text-neutral-300"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Lihat Sebagai Penonton
+                </Button>
               )}
-            </h1>
-            <p className="text-sm text-neutral-400">Pastikan pencahayaan dan audio jernih sebelum mengudara</p>
+              {!isLive ? (
+                <Button onClick={handleStartBroadcast} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/50">
+                  Mulai Mengudara
+                </Button>
+              ) : (
+                <Button onClick={handleEndBroadcast} variant="destructive">
+                  Akhiri Siaran
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {!isLive ? (
-              <Button onClick={handleStartBroadcast} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/50">
-                Mulai Mengudara
-              </Button>
-            ) : (
-              <Button onClick={handleEndBroadcast} variant="destructive">
-                Akhiri Siaran
-              </Button>
-            )}
-          </div>
+
+          {isLive && streamInfo?.stream_key && (
+            <div className="mt-4 p-4 bg-indigo-950/30 border border-indigo-500/30 rounded-lg space-y-3">
+              <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Mux Stream Credentials (Untuk OBS)</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] text-neutral-400 uppercase">RTMP Server URL</p>
+                  <code className="text-xs text-white bg-black/50 p-2 rounded block mt-1">rtmp://global-live.mux.com:5222/app</code>
+                </div>
+                <div>
+                  <p className="text-[10px] text-neutral-400 uppercase">Stream Key</p>
+                  <code className="text-xs text-amber-400 bg-black/50 p-2 rounded block mt-1">{streamInfo.stream_key}</code>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="relative flex-1 bg-black rounded-xl border border-neutral-800 overflow-hidden aspect-video shadow-2xl">
@@ -233,8 +278,10 @@ export default function WebRTCStreamRoom() {
               variant="outline" 
               size="icon" 
               className="rounded-full h-12 w-12 border-0 bg-neutral-800 hover:bg-neutral-700 text-white"
+              onClick={toggleCamera}
+              title={cameraEnabled ? "Pause Kamera" : "Resume Kamera"}
             >
-              <MonitorUp className="h-5 w-5" />
+              <MonitorUp className={`h-5 w-5 ${!cameraEnabled ? 'text-red-500' : ''}`} />
             </Button>
             
             <Button 
