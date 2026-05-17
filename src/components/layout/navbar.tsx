@@ -3,14 +3,26 @@
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { signOut } from "@/lib/auth-client";
 
 export function Navbar() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    router.push("/login");
+    try {
+      await signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            router.push("/");
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Gagal keluar:", error);
+      router.push("/");
+    }
   };
 
   return (

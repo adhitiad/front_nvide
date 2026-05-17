@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Video, Users, Wallet, Settings, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Video, Users, Wallet, Settings, MessageSquare, ShieldAlert } from "lucide-react";
 
 const routes = [
   {
@@ -35,6 +35,12 @@ const routes = [
     icon: Wallet,
     href: "/dashboard/wallet",
     color: "text-emerald-500",
+  },
+  {
+    label: "Moderasi & Keamanan",
+    icon: ShieldAlert,
+    href: "/dashboard/moderation",
+    color: "text-red-500",
   },
   {
     label: "Settings",

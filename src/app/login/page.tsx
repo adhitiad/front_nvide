@@ -13,6 +13,8 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Mail, Lock, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
+import Link from "next/link";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
@@ -31,21 +33,45 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
-      await signIn.social({
+      const result = await signIn.social({
         provider: "google",
         callbackURL: "/dashboard",
       });
-    } catch (error) {
+      if (result?.error) {
+        toast.error("Login Gagal: " + result.error.message);
+      }
+    } catch (error: any) {
       console.error("Login Gagal", error);
+      toast.error("Terjadi kesalahan: " + (error.message || "Unknown error"));
       setIsLoading(false);
     }
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast.error("Email dan password harus diisi");
+      return;
+    }
+
     setIsLoading(true);
-    // Logic login email manual bisa ditambahkan di sini
-    setIsLoading(false);
+    try {
+      const { data, error } = await signIn.email({
+        email,
+        password,
+        callbackURL: "/dashboard",
+      });
+
+      if (error) {
+        toast.error("Login Gagal: " + error.message);
+      } else {
+        toast.success("Login Berhasil! Mengalihkan...");
+      }
+    } catch (err: any) {
+      toast.error("Terjadi kesalahan: " + (err.message || "Unknown error"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -134,9 +160,9 @@ export default function LoginPage() {
           <CardFooter className="flex flex-col space-y-4 pb-8">
             <div className="text-center text-sm">
               <span className="text-neutral-500">Belum punya akun? </span>
-              <button className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors">
+              <Link href="/register" className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors">
                 Daftar Gratis
-              </button>
+              </Link>
             </div>
           </CardFooter>
         </Card>

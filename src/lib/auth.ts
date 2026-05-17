@@ -2,17 +2,81 @@ import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { Pool } from "pg";
 
-const pool = new Pool({
+const globalForPool = globalThis as unknown as { pool: Pool | undefined };
+
+export const pool = globalForPool.pool ?? new Pool({
     connectionString: process.env.DATABASE_URL,
+    max: 3,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 });
+
+if (process.env.NODE_ENV !== "production") {
+    globalForPool.pool = pool;
+}
 
 export const auth = betterAuth({
     database: pool,
-    modelName: {
-        user: "users", // Map ke tabel 'users' yang sudah ada
-        session: "sessions",
-        account: "accounts",
-        verification: "verifications"
+    secret: process.env.BETTER_AUTH_SECRET,
+    baseURL: process.env.BETTER_AUTH_URL,
+    user: {
+        modelName: "users",
+        fields: {
+            emailVerified: "email_verified",
+            createdAt: "created_at",
+            updatedAt: "updated_at",
+            banned: "banned",
+            banReason: "ban_reason",
+            banExpires: "ban_expires",
+        },
+        additionalFields: {
+            role: {
+                type: "string",
+                defaultValue: "user",
+            },
+            username: {
+                type: "string",
+                required: false,
+            }
+        }
+    },
+    session: {
+        modelName: "sessions",
+        fields: {
+            userId: "user_id",
+            expiresAt: "expires_at",
+            ipAddress: "ip_address",
+            userAgent: "user_agent",
+            createdAt: "created_at",
+            updatedAt: "updated_at",
+        },
+        cookieCache: {
+            enabled: true,
+            maxAge: 5 * 60
+        }
+    },
+    account: {
+        modelName: "accounts",
+        fields: {
+            userId: "user_id",
+            accountId: "account_id",
+            providerId: "provider_id",
+            accessToken: "access_token",
+            refreshToken: "refresh_token",
+            idToken: "id_token",
+            accessTokenExpiresAt: "access_token_expires_at",
+            refreshTokenExpiresAt: "refresh_token_expires_at",
+            createdAt: "created_at",
+            updatedAt: "updated_at",
+        }
+    },
+    verification: {
+        modelName: "verifications",
+        fields: {
+            expiresAt: "expires_at",
+            createdAt: "created_at",
+            updatedAt: "updated_at",
+        }
     },
     socialProviders: {
         google: {
@@ -20,23 +84,15 @@ export const auth = betterAuth({
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
         },
     },
-    plugins: [
-        admin() // Memungkinkan pengelolaan Role (admin, user, host, agensi)
-    ],
-    user: {
-        // Kita bisa menambahkan field kustom di sini jika diperlukan
-        additionalFields: {
-            role: {
-                type: "string",
-                defaultValue: "user",
-            }
-        }
+    emailAndPassword: {
+        enabled: true,
     },
-    // Konfigurasi session agar bisa dibaca oleh backend Go melalui cookie
-    session: {
-        cookieCache: {
-            enabled: true,
-            maxAge: 5 * 60 // 5 minutes
+    plugins: [
+        admin()
+    ],
+    advanced: {
+        database: {
+            generateId: () => crypto.randomUUID()
         }
     }
 });

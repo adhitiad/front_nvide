@@ -11,8 +11,24 @@ const api = axios.create({
 
 // Request Interceptor: Menambahkan token ke setiap request
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
+  async (config) => {
+    let token = localStorage.getItem("access_token");
+
+    // Jika tidak ada access_token di localStorage, coba ambil JWT dari session Better Auth
+    if (!token && typeof window !== "undefined") {
+      try {
+        const res = await axios.get("/api/auth/token");
+        if (res.status === 200 && res.data.access_token) {
+          token = res.data.access_token;
+          localStorage.setItem("access_token", token as string);
+          localStorage.setItem("refresh_token", (res.data.refresh_token as string) || "");
+        }
+      } catch (err) {
+        // Gagal mengambil token, mungkin user belum login
+        console.warn("Gagal sinkronisasi JWT token dari Better Auth session:", err);
+      }
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -68,6 +84,11 @@ api.interceptors.response.use(
         // Jika refresh gagal, logout paksa
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        try {
+          await axios.post("/api/auth/sign-out");
+        } catch (signOutError) {
+          console.error("Gagal keluar dari Better Auth:", signOutError);
+        }
         window.location.href = "/login";
         return Promise.reject(refreshError);
       }
