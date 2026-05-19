@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Video, Users, Wallet, Settings, MessageSquare, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, Video, Users, Wallet, Settings, MessageSquare, ShieldAlert, Calendar, Building2 } from "lucide-react";
 
 const routes = [
   {
@@ -17,6 +17,18 @@ const routes = [
     icon: Video,
     href: "/dashboard/streams",
     color: "text-violet-500",
+  },
+  {
+    label: "Bookings",
+    icon: Calendar,
+    href: "/dashboard/bookings",
+    color: "text-indigo-400",
+  },
+  {
+    label: "Agency Partner",
+    icon: Building2,
+    href: "/dashboard/agency",
+    color: "text-amber-400",
   },
   {
     label: "Messages (DM)",

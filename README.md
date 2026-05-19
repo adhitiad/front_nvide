@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 NVide Live - Frontend Developer & Maintenance Guide
 
-## Getting Started
+Selamat datang di repositori frontend **NVide Live**! Proyek ini dibangun menggunakan **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS**, dan **Zustand** untuk manajemen state.
 
-First, run the development server:
+Panduan ini dirancang khusus agar developer baru atau tim pemelihara sistem dapat dengan mudah melakukan pembaruan, perbaikan bug, atau penambahan fitur di masa mendatang tanpa merusak struktur kode yang ada.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 📁 1. Struktur Folder & Desain Pola (Clean Architecture)
+
+Kami menerapkan struktur modular untuk memisahkan logika bisnis dari komponen tampilan (UI):
+
+```text
+front_nvide/
+├── src/
+│   ├── app/                 # Halaman & Rute Aplikasi (Next.js App Router)
+│   │   ├── admin/           # Dasbor Keamanan & Moderasi Admin
+│   │   ├── creator/         # Tokenisasi Kreator & Detail Kurva Bonding
+│   │   ├── dashboard/       # Streamer Creator Studio (Kunci Siaran Dual)
+│   │   ├── settings/        # Pengaturan Privasi Tinggi & Blokir/Mute
+│   │   ├── streams/         # Halaman Nonton Live & AI Short Clips
+│   │   └── vod/             # Galeri VOD & Enkripsi DRM Player
+│   │
+│   ├── components/          # Komponen UI Modular & Reusable (Shadcn/Custom)
+│   │   ├── HLSPlayer.tsx    # Pemutar HLS Video terenkripsi DRM
+│   │   ├── PredictionPanel.tsx # Panel Betting Pasar Prediksi
+│   │   └── ReportModal.tsx  # Dialog Pelaporan Konten
+│   │
+│   ├── hooks/               # Custom Hooks (Pembungkus Logika & Sinkronisasi API)
+│   ├── store/               # State Management (Zustand Global Stores)
+│   └── lib/                 # Utilitas Inti (Axios Interceptor & Auth Client)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Prinsip Alur Data**: 
+  `API / Server Fallback` ➡️ `Zustand Store` ➡️ `Custom Hook` ➡️ `Page / Component UI`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧠 2. Panduan Pemeliharaan State Management (Zustand)
 
-## Learn More
+Setiap fitur memiliki store tersendiri di dalam `/src/store` untuk menghindari tumpang tindih state global.
 
-To learn more about Next.js, take a look at the following resources:
+### A. Cara Memperbarui API di Store:
+Jika skema endpoint backend berubah, Anda hanya perlu mengedit file store terkait di `/src/store/use[Feature]Store.ts`. 
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Contoh Template Edit Store:**
+```typescript
+import { create } from "zustand";
+import api from "@/lib/api";
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+export const useMyFeatureStore = create((set) => ({
+  data: [],
+  loading: false,
+  
+  fetchData: async () => {
+    set({ loading: true });
+    try {
+      // 1. Panggil API backend menggunakan instance Axios yang sudah terenkapsulasi
+      const res = await api.get("/new-endpoint-path");
+      
+      // Catatan: response interceptor di src/lib/api.ts secara otomatis mengembalikan 'res.data'
+      set({ data: res, loading: false }); 
+    } catch (err) {
+      // 2. Berikan fallback dummy terstruktur agar UI tidak crash jika backend offline
+      set({ data: DUMMY_FALLBACK, loading: false });
+    }
+  }
+}));
+```
 
-## Deploy on Vercel
+### B. Mekanisme Fallback Data (Offline Resiliency)
+Semua store baru (seperti `useVODStore`, `usePredictionStore`, `useClipStore`, `usePrivacyStore`, dll.) telah dilengkapi dengan data **fallback/dummy terstruktur**. 
+> 💡 *Manfaat*: Developer dapat melakukan pengetesan UI secara instan bahkan ketika database postgresql lokal atau backend Go sedang offline.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔌 3. Integrasi API & Autentikasi (Axios & JWT)
+
+Klien API didefinisikan di `src/lib/api.ts` menggunakan instance **Axios**. 
+
+- **Token Bearer JWT**: Disematkan secara otomatis di header permintaan jika token tersedia di penyimpanan lokal.
+- **Auto Refresh Token**: Jika server mengembalikan status `401 (Unauthorized)`, interceptor Axios akan melakukan panggilan ke `/auth/refresh` secara otomatis untuk memperbarui token akses di belakang layar sebelum mengulangi permintaan asli.
+- **Penyaringan Keamanan Tinggi**: Di dalam chat room (`/streams/[id]/page.tsx`), pesan dari pengguna yang diblokir atau dibisukan disaring secara real-time di sisi klien menggunakan store `usePrivacyStore`.
+
+---
+
+## 🛠️ 4. Langkah-Langkah Menambahkan Fitur Baru
+
+Untuk menambahkan fitur baru dengan rapi, ikuti 5 langkah ini:
+
+1. **Definisikan Type TypeScript**: Tambahkan interface data baru di folder `/src/store` atau buat file tipe baru.
+2. **Buat Zustand Store**: Buat berkas `/src/store/use<NamaFitur>Store.ts` untuk mengelola fetch data API dan data fallback.
+3. **Buat Custom Hook**: Buat berkas `/src/hooks/use<NamaFitur>.ts` untuk membungkus store dan menambahkan efek samping seperti sinkronisasi timer atau pemantauan WebSocket.
+4. **Buat Komponen UI**: Buat komponen pembantu di `/src/components` jika antarmuka akan digunakan berulang kali.
+5. **Buat Rute Halaman**: Buat folder rute di `/src/app/<nama-rute>/page.tsx` lalu hubungkan hook ke dalam tampilan halaman.
+
+---
+
+## 🚀 5. Perintah Pengembangan Lokal
+
+Gunakan **Bun** atau **NPM** untuk mengoperasikan server pengembangan:
+
+```bash
+# 1. Install dependensi
+npm install  # atau bun install
+
+# 2. Jalankan mode pengembangan dengan reload otomatis
+npm run dev  # atau bun dev
+
+# 3. Lakukan build produksi untuk audit tipe TypeScript & linter
+npm run build
+```
+
+---
+
+## 🛡️ 6. Checklist Sebelum Melakukan Pull Request (PR)
+
+Sebelum menyerahkan kode baru ke repositori produksi, pastikan developer melakukan verifikasi berikut:
+- [ ] Menjalankan `npm run build` dan memastikan **0 error TypeScript** serta **0 error linter**.
+- [ ] Memastikan tidak ada properti HTML ilegal (seperti `title` langsung di dalam tag ikon Lucide-React). Gunakan pembungkus `<span>` jika memerlukan atribut tooltip.
+- [ ] Memastikan bahwa loading skeleton tampil dengan harmonis saat memicu data fetching.
+- [ ] Memastikan layout responsif untuk format ganda (Landscape 16:9 & Portrait 9:16) sudah diuji.
