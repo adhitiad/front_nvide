@@ -26,8 +26,16 @@ export async function GET(request: NextRequest) {
 
     const dbUser = dbRes.rows[0];
 
-    // JWT Secret must match Go backend's JWT_SECRET
-    const jwtSecret = process.env.JWT_SECRET || "change-this-super-secret-key-in-production-use-random-256-bit";
+    // F-003 guard: JWT_SECRET must be set in the environment; we never fall back to
+    // a hardcoded string so that a JWT signed under a known key cannot be forged.
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || jwtSecret.length < 32) {
+      console.error("[FATAL] JWT_SECRET is not set or too short — refusing to sign tokens");
+      return NextResponse.json(
+        { error: "Server misconfiguration: JWT_SECRET is not set" },
+        { status: 500 }
+      );
+    }
 
     const now = Math.floor(Date.now() / 1000);
 

@@ -69,6 +69,18 @@ export default function StreamDetailPage({ params }: PageProps) {
   const [orientation, setOrientation] = useState<"landscape" | "portrait">(
     "landscape",
   );
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  // Set orientation to portrait automatically on mobile screen detection
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        setOrientation("portrait");
+      }
+    }
+  }, []);
 
   // INTERACTIVE TOYS STATE
   const [toyIntensity, setToyIntensity] = useState(5);
@@ -339,7 +351,17 @@ export default function StreamDetailPage({ params }: PageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col font-sans relative selection:bg-purple-600 selection:text-white">
+    <div
+      className="min-h-screen bg-black text-white flex flex-col font-sans relative selection:bg-purple-600 selection:text-white"
+      onTouchStart={(e) => setTouchStartY(e.touches[0].clientY)}
+      onTouchEnd={(e) => {
+        if (touchStartY === null) return;
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
+        if (deltaY < -80) setIsMobileChatOpen(true); // swipe up
+        if (deltaY > 80) setIsMobileChatOpen(false); // swipe down
+        setTouchStartY(null);
+      }}
+    >
       {/* COIN RAIN EFFECT OVERLAY */}
       <CoinRain active={activeRain} />
 
@@ -734,11 +756,15 @@ export default function StreamDetailPage({ params }: PageProps) {
 
         {/* RIGHT COLUMN: CHAT WINDOW OR OFFLINE AI COMPANION */}
         <div
-          className={`${
+          className={`flex flex-col bg-neutral-950 border border-neutral-900 rounded-3xl overflow-hidden shadow-2xl relative ${
             orientation === "landscape"
               ? "lg:col-span-1 h-[600px] lg:h-auto"
               : "w-full h-[550px]"
-          } flex flex-col bg-neutral-950 border border-neutral-900 rounded-3xl overflow-hidden shadow-2xl relative`}
+          } ${
+            isMobileChatOpen
+              ? "fixed inset-0 z-50 h-full w-full rounded-none"
+              : "hidden lg:flex"
+          }`}
         >
           {currentStream.status === "offline" ? (
             /* COMPANION OFFLINE CHATBOT WIDGET */
@@ -782,7 +808,19 @@ export default function StreamDetailPage({ params }: PageProps) {
                     </span>
                   </div>
                 </div>
-                <span className="h-2 w-2 rounded-full bg-purple-500 animate-ping" />
+                <div className="flex items-center gap-2">
+                  {isMobileChatOpen && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsMobileChatOpen(false)}
+                      className="lg:hidden text-xs font-bold text-neutral-400 hover:text-white mr-1"
+                    >
+                      Tutup
+                    </Button>
+                  )}
+                  <span className="h-2 w-2 rounded-full bg-purple-500 animate-ping" />
+                </div>
               </div>
 
               {/* Chatbot History */}
@@ -851,7 +889,17 @@ export default function StreamDetailPage({ params }: PageProps) {
                 </h3>
 
                 {/* DISAPPEARING MESSAGES CLOCK INDICATOR */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
+                  {isMobileChatOpen && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsMobileChatOpen(false)}
+                      className="lg:hidden text-xs font-bold text-neutral-400 hover:text-white mr-1"
+                    >
+                      Tutup
+                    </Button>
+                  )}
                   <span title="Masa Habis Pesan Aktif">
                     <Clock className="h-3.5 w-3.5 text-purple-400 animate-pulse" />
                   </span>
@@ -1024,6 +1072,18 @@ export default function StreamDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
+
+      {/* Floating Chat Button for Mobile */}
+      {!isMobileChatOpen && (
+        <div className="lg:hidden fixed bottom-20 right-4 z-40">
+          <Button
+            onClick={() => setIsMobileChatOpen(true)}
+            className="rounded-full h-12 w-12 bg-primary hover:bg-primary/95 text-primary-foreground shadow-lg flex items-center justify-center anime-pulse-hover border border-primary/20"
+          >
+            <MessageSquare className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

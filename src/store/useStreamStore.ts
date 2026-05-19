@@ -22,6 +22,8 @@ export interface Stream {
   viewer_count: number;
   like_count: number;
   room_mode: string;
+  format?: string;
+  interactive?: boolean;
   mux_playback_url?: string;
   playback_id?: string;
   host?: User;

@@ -1,34 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useStreamStore } from "@/store/useStreamStore";
 import { useSession } from "@/lib/auth-client";
+import { useLanguageStore } from "@/store/useLanguageStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Flame, Radio, RefreshCw, Layers, Sparkles, Filter, LogIn } from "lucide-react";
+import { 
+  Search, 
+  Flame, 
+  Radio, 
+  RefreshCw, 
+  Layers, 
+  Sparkles, 
+  Filter, 
+  LogIn,
+  Sliders,
+  Lock,
+  Monitor,
+  Tablet,
+  CheckCircle,
+  TrendingUp,
+  Heart,
+  AlertTriangle
+} from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { AIRecommendations } from "@/components/AIRecommendations";
-
-const categories = [
-  { name: "Semua", value: "" },
-  { name: "Gaming", value: "gaming" },
-  { name: "Talkshow", value: "talkshow" },
-  { name: "Musik", value: "music" },
-  { name: "Kecantikan", value: "beauty" },
-  { name: "Edukasi", value: "education" },
-  { name: "Lainnya", value: "other" },
-];
+import { motion, AnimatePresence } from "framer-motion";
+import BottomNav from "@/components/layout/BottomNav";
 
 export default function StreamsPage() {
   const { data: session, isPending: sessionLoading } = useSession();
   const { streams, fetchStreams, loading, error } = useStreamStore();
+  const t = useLanguageStore((state) => state.t);
+  
+  // Filtering states
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
+  
+  // Advanced filters panel
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [filterFormat, setFilterFormat] = useState<"all" | "landscape" | "portrait">("all");
+  const [filterLovense, setFilterLovense] = useState<boolean | null>(null);
+  const [filterPrivate, setFilterPrivate] = useState<boolean | null>(null);
+  
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [pullDistance, setPullDistance] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   useEffect(() => {
     fetchStreams(activeCategory);
@@ -36,60 +59,121 @@ export default function StreamsPage() {
 
   const handleRefresh = () => {
     fetchStreams(activeCategory);
-    toast.success("Daftar siaran berhasil diperbarui");
+    toast.success("Active live stream list refreshed! 🌸");
   };
 
-  // Filter berdasarkan pencarian
+  // Filter logic
   const filteredStreams = streams.filter((stream) => {
-    const titleMatch = stream.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const hostMatch = stream.host?.username?.toLowerCase().includes(searchQuery.toLowerCase());
-    const categoryMatch = stream.category?.toLowerCase().includes(searchQuery.toLowerCase());
-    return titleMatch || hostMatch || categoryMatch;
+    // 1. Text search
+    const text = searchQuery.toLowerCase();
+    const titleMatch = stream.title.toLowerCase().includes(text);
+    const hostMatch = stream.host?.username?.toLowerCase().includes(text);
+    const descMatch = (stream.description || "").toLowerCase().includes(text);
+    if (searchQuery && !titleMatch && !hostMatch && !descMatch) return false;
+
+    // 2. Format filter
+    if (filterFormat === "landscape" && stream.format !== "landscape" && stream.format !== "dual") return false;
+    if (filterFormat === "portrait" && stream.format !== "portrait" && stream.format !== "dual") return false;
+
+    // 3. Lovense filter
+    if (filterLovense !== null) {
+      const hasLovense = stream.interactive || stream.title.toLowerCase().includes("lovense") || stream.title.toLowerCase().includes("toy");
+      if (filterLovense && !hasLovense) return false;
+      if (!filterLovense && hasLovense) return false;
+    }
+
+    // 4. Private Room filter
+    if (filterPrivate !== null) {
+      const isPrivate = stream.room_mode === "private" || stream.title.toLowerCase().includes("private") || stream.title.toLowerCase().includes("vip");
+      if (filterPrivate && !isPrivate) return false;
+      if (!filterPrivate && isPrivate) return false;
+    }
+
+    return true;
   });
 
-  // Pagination client-side
   const totalPages = Math.ceil(filteredStreams.length / itemsPerPage);
   const paginatedStreams = filteredStreams.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
+  const categories = [
+    { name: t("categories.all", "All"), value: "" },
+    { name: t("categories.gaming", "Gaming"), value: "gaming" },
+    { name: t("categories.talkshow", "ASMR Chitchat"), value: "talkshow" },
+    { name: t("categories.music", "Music Covers"), value: "music" },
+    { name: t("categories.cosplay", "Cosplay"), value: "cosplay" },
+  ];
+
+  const activeCategoryIndex = categories.findIndex((c) => c.value === activeCategory);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (window.scrollY <= 0 && touchStartY !== null) {
+      const deltaY = e.touches[0].clientY - touchStartY;
+      if (deltaY > 0) setPullDistance(Math.min(deltaY, 100));
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX !== null) {
+      const deltaX = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(deltaX) > 60) {
+        const nextIndex = deltaX < 0 ? activeCategoryIndex + 1 : activeCategoryIndex - 1;
+        if (nextIndex >= 0 && nextIndex < categories.length) {
+          setActiveCategory(categories[nextIndex].value);
+          setCurrentPage(1);
+        }
+      }
+    }
+    if (pullDistance > 70) {
+      handleRefresh();
+    }
+    setPullDistance(0);
+    setTouchStartX(null);
+    setTouchStartY(null);
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-600 selection:text-white">
-      {/* BACKGROUND DECORATIVE ELEMENTS */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-[150px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-background text-foreground font-sans relative pb-16">
+      {/* Anime Theme backgrounds */}
+      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse" />
+      <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[120px] pointer-events-none -z-10" />
 
       {/* HEADER SECTION */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/60 border-b border-neutral-900 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-card/75 border-b border-primary/15 px-6 py-4 flex items-center justify-between shadow-[0_2px_12px_rgba(244,143,177,0.08)]">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 via-pink-600 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-105 transition-transform duration-300">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
             <Radio className="h-5 w-5 text-white animate-pulse" />
           </div>
-          <span className="text-2xl font-black bg-gradient-to-r from-white via-neutral-200 to-neutral-500 bg-clip-text text-transparent tracking-tight">
+          <span className="text-xl font-heading font-black tracking-tight text-primary">
             NVide Live
           </span>
         </Link>
 
-        {/* PROFILE/LOGIN ACTION */}
         <div className="flex items-center gap-4">
           {!sessionLoading && session ? (
-            <div className="flex items-center gap-3 bg-neutral-900/60 border border-neutral-800 rounded-full py-1.5 pl-3 pr-4 hover:border-neutral-700 transition">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold uppercase ring-2 ring-purple-600/30">
+            <Link href="/dashboard" className="flex items-center gap-2.5 bg-primary/5 hover:bg-primary/10 border border-primary/20 rounded-full py-1 pl-1.5 pr-3 transition-colors">
+              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-black uppercase">
                 {session.user.name?.charAt(0) || "U"}
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold leading-tight">{session.user.name}</span>
-                <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-bold leading-none text-foreground">{session.user.name}</span>
+                <span className="text-[9px] text-accent font-black uppercase tracking-wider mt-0.5">
                   {session.user.role || "user"}
                 </span>
               </div>
-            </div>
+            </Link>
           ) : (
             <Link href="/login">
-              <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-full font-bold shadow-lg shadow-purple-500/20 transition-all duration-300">
-                <LogIn className="h-4 w-4 mr-2" />
-                Masuk
+              <Button size="sm" className="bg-primary hover:bg-primary/95 text-primary-foreground rounded-full font-bold shadow-md">
+                <LogIn className="h-3.5 w-3.5 mr-1.5" />
+                Sign In
               </Button>
             </Link>
           )}
@@ -97,71 +181,170 @@ export default function StreamsPage() {
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-7xl mx-auto px-6 py-12 space-y-12">
-        {/* HERO HERO VIBES */}
-        <div className="relative overflow-hidden rounded-3xl bg-neutral-950 border border-neutral-900 px-8 py-14 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-purple-600/10 via-pink-600/10 to-transparent blur-3xl pointer-events-none" />
-          
-          <div className="space-y-6 max-w-xl text-center md:text-left z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-full text-xs font-semibold text-purple-400">
-              <Sparkles className="h-3.5 w-3.5" />
-              Seni Live Streaming Premium
+      <main
+        className="max-w-7xl mx-auto px-4 py-8 space-y-8"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {pullDistance > 0 && (
+          <div className="text-center text-xs text-muted-foreground">
+            {pullDistance > 70 ? "Lepas untuk refresh" : "Tarik ke bawah untuk refresh"}
+          </div>
+        )}
+        
+        {/* HERO BANNER - ANIME STYLE */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-accent/5 to-card border border-primary/20 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md">
+          <div className="space-y-4 max-w-xl text-center md:text-left z-10">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/20 border border-primary/30 rounded-full text-xs font-bold text-primary animate-bounce">
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              Live Streaming Art HQ
             </div>
-            <h1 className="text-4xl md:text-5xl font-black leading-tight tracking-tight">
-              Tonton Siaran Langsung dari <span className="bg-gradient-to-r from-purple-400 via-pink-500 to-blue-400 bg-clip-text text-transparent">Kreator Berbakat</span>
+            <h1 className="text-3xl md:text-4xl font-heading font-black leading-tight">
+              Watch Cute Streams from <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Top Creators</span>
             </h1>
-            <p className="text-neutral-400 text-base leading-relaxed">
-              Jelajahi dunia live streaming imersif dengan video HLS beresolusi tinggi, donasi gift interaktif, chat berkecepatan tinggi, dan interaksi panggilan pribadi.
+            <p className="text-muted-foreground text-xs leading-relaxed max-w-lg">
+              Interact with anime Vtuber avatars, cosplay showstars, gamer partners and join private rooms. Enjoy low-latency streaming and smart interactions.
             </p>
           </div>
 
-          <div className="relative w-full max-w-sm aspect-video rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl">
+          <div className="relative w-full max-w-xs aspect-video rounded-2xl overflow-hidden border border-primary/20 shadow-lg shrink-0">
             <Image
               src="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=640"
-              alt="Gaming stream mockup"
+              alt="Live Anime Stream banner"
               fill
-              className="object-cover opacity-85 hover:scale-105 transition-transform duration-700"
+              className="object-cover opacity-90"
             />
-            <div className="absolute top-4 left-4 bg-red-600 text-xs font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-lg shadow-red-500/30 animate-pulse">
+            <div className="absolute top-3 left-3 bg-red-500 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md animate-pulse">
               <span className="w-1.5 h-1.5 bg-white rounded-full" />
-              Live Sekarang
+              Live Now
             </div>
           </div>
         </div>
 
-        {/* REKOMENDASI AI */}
-        <AIRecommendations />
+        {/* SEARCH, CATEGORIES & ADVANCED PANEL */}
+        <div className="space-y-4 bg-card p-5 rounded-3xl border border-primary/15 shadow-sm">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            {/* Search Input */}
+            <div className="relative w-full md:max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search stream title, host, tags..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-background border-primary/25 focus:border-primary rounded-2xl text-xs placeholder:text-muted-foreground"
+              />
+            </div>
 
-        {/* SEARCH, CATEGORIES & CONTROL BAR */}
-        <div className="flex flex-col lg:flex-row gap-6 items-stretch justify-between bg-neutral-950 p-6 rounded-2xl border border-neutral-900">
-          {/* SEARCH INPUT */}
-          <div className="relative flex-1 max-w-lg">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
-            <Input
-              type="text"
-              placeholder="Cari stream, host, atau tag..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-neutral-900 border-neutral-800 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-xl text-neutral-200 placeholder:text-neutral-500"
-            />
+            {/* Action buttons */}
+            <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className={`border-primary/20 bg-background text-xs font-bold rounded-2xl h-10 ${
+                  showAdvanced ? "bg-primary/10 text-primary border-primary" : "text-muted-foreground"
+                }`}
+              >
+                <Filter className="h-4 w-4 mr-1.5" />
+                Advanced Filters
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="border-primary/20 bg-background text-muted-foreground hover:text-primary hover:bg-primary/5 text-xs font-bold rounded-2xl h-10"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
 
-          {/* ACTIONS */}
-          <div className="flex flex-wrap items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={loading}
-              className="border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-semibold"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Segarkan
-            </Button>
-          </div>
+          {/* ADVANCED FILTER DRAWER */}
+          <AnimatePresence>
+            {showAdvanced && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden pt-3 border-t border-primary/10 grid grid-cols-1 sm:grid-cols-3 gap-4"
+              >
+                {/* Format selection */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stream Format</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["all", "landscape", "portrait"] as const).map((fmt) => (
+                      <button
+                        key={fmt}
+                        onClick={() => setFilterFormat(fmt)}
+                        className={`py-1.5 rounded-xl border text-[10px] font-bold transition-all ${
+                          filterFormat === fmt 
+                            ? "border-primary bg-primary/10 text-primary" 
+                            : "border-primary/15 bg-background text-muted-foreground"
+                        }`}
+                      >
+                        {fmt.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lovense Toy filter */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Interactive Toys</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "All", value: null },
+                      { label: "Lovense Only", value: true },
+                      { label: "Standard Only", value: false }
+                    ].map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setFilterLovense(opt.value)}
+                        className={`py-1.5 rounded-xl border text-[10px] font-bold transition-all ${
+                          filterLovense === opt.value 
+                            ? "border-primary bg-primary/10 text-primary" 
+                            : "border-primary/15 bg-background text-muted-foreground"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Private vs Public */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Access Room Mode</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "All", value: null },
+                      { label: "Paid VIP Private", value: true },
+                      { label: "Public Streams", value: false }
+                    ].map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setFilterPrivate(opt.value)}
+                        className={`py-1.5 rounded-xl border text-[10px] font-bold transition-all ${
+                          filterPrivate === opt.value 
+                            ? "border-primary bg-primary/10 text-primary" 
+                            : "border-primary/15 bg-background text-muted-foreground"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* CATEGORY TABS */}
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-neutral-800">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1.5">
           {categories.map((cat) => (
             <button
               key={cat.name}
@@ -169,151 +352,158 @@ export default function StreamsPage() {
                 setActiveCategory(cat.value);
                 setCurrentPage(1);
               }}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 border whitespace-nowrap ${
+              className={`px-4 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 activeCategory === cat.value
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 border-transparent text-white shadow-lg shadow-purple-500/25"
-                  : "bg-neutral-950 border-neutral-900 hover:border-neutral-800 text-neutral-400 hover:text-white"
+                  ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                  : "bg-card border-primary/15 hover:border-primary/30 text-muted-foreground"
               }`}
             >
-              {cat.value === "" ? <Layers className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
+              {cat.value === "" ? <Layers className="h-3.5 w-3.5" /> : <Flame className="h-3.5 w-3.5" />}
               {cat.name}
             </button>
           ))}
         </div>
 
-        {/* STREAM CARDS GRID / LOADERS */}
+        {/* STREAM LIST GRID */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-neutral-950 rounded-2xl border border-neutral-900 overflow-hidden animate-pulse h-[350px]">
-                <div className="bg-neutral-900 w-full h-[200px]" />
-                <div className="p-5 space-y-4">
-                  <div className="h-4 bg-neutral-900 rounded w-3/4" />
-                  <div className="h-3 bg-neutral-900 rounded w-1/2" />
-                  <div className="flex items-center gap-3 pt-3">
-                    <div className="w-8 h-8 rounded-full bg-neutral-900" />
-                    <div className="h-3 bg-neutral-900 rounded w-1/3" />
-                  </div>
-                </div>
-              </div>
+              <div key={n} className="bg-card border border-primary/15 rounded-3xl overflow-hidden animate-pulse h-64" />
             ))}
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6 bg-neutral-950 rounded-3xl border border-red-900/20 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-red-950/50 flex items-center justify-center text-red-500 border border-red-900/30">
-              <Radio className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl font-bold text-red-400">Gagal Memuat Daftar Stream</h3>
-            <p className="text-neutral-400 max-w-md">{error}</p>
-            <Button onClick={handleRefresh} className="bg-neutral-900 hover:bg-neutral-800 border border-neutral-800">
-              Coba Lagi
-            </Button>
+          <div className="py-16 text-center bg-card border border-rose-500/20 rounded-3xl max-w-md mx-auto space-y-3">
+            <AlertTriangle className="h-8 w-8 text-rose-500 mx-auto" />
+            <h3 className="text-sm font-black text-rose-500">Failed to fetch streams</h3>
+            <p className="text-xs text-muted-foreground">{error}</p>
+            <Button onClick={handleRefresh} size="sm" className="bg-primary text-primary-foreground text-xs font-bold rounded-xl">Try Again</Button>
           </div>
         ) : paginatedStreams.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-6 bg-neutral-950 rounded-3xl border border-neutral-900 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center text-neutral-500 border border-neutral-800">
-              <Filter className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl font-bold text-neutral-200">Tidak Ada Siaran Aktif</h3>
-            <p className="text-neutral-400 max-w-sm">
-              {searchQuery ? "Coba ganti kata kunci pencarian Anda." : "Saat ini tidak ada siaran langsung yang aktif. Silakan kembali nanti!"}
-            </p>
+          <div className="py-16 text-center bg-card border border-primary/10 rounded-3xl max-w-md mx-auto space-y-3">
+            <Radio className="h-8 w-8 text-muted-foreground mx-auto animate-pulse" />
+            <h3 className="text-sm font-black text-foreground">No Streams Found</h3>
+            <p className="text-xs text-muted-foreground">Try tweaking your search terms or filters.</p>
           </div>
         ) : (
-          <div className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {paginatedStreams.map((stream) => (
-                <Link key={stream.id} href={`/streams/${stream.id}`} className="group block">
-                  <Card className="h-full bg-neutral-950 border-neutral-900 hover:border-purple-900/50 overflow-hidden transition-all duration-300 flex flex-col hover:shadow-xl hover:shadow-purple-500/5 relative rounded-2xl">
-                    
-                    {/* THUMBNAIL WRAPPER */}
-                    <div className="relative aspect-video w-full overflow-hidden bg-neutral-900 border-b border-neutral-900">
-                      <Image
-                        src={stream.thumbnail_url || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=640"}
-                        alt={stream.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-700"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {paginatedStreams.map((stream) => {
+                const hasLovense = stream.interactive || stream.title.toLowerCase().includes("lovense") || stream.title.toLowerCase().includes("toy");
+                const isPrivate = stream.room_mode === "private" || stream.title.toLowerCase().includes("private") || stream.title.toLowerCase().includes("vip");
+
+                return (
+                  <Link key={stream.id} href={`/streams/${stream.id}`} className="group block">
+                    <Card className="h-full bg-card border border-primary/15 hover:border-primary/30 overflow-hidden transition-all duration-300 rounded-3xl relative flex flex-col justify-between hover:shadow-lg">
                       
-                      {/* LIVE & VIEWER BADGES */}
-                      <div className="absolute top-4 left-4 flex gap-2 items-center">
-                        <span className="bg-red-600 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-lg shadow-red-600/30 flex items-center gap-1">
-                          <span className="w-1 h-1 bg-white rounded-full animate-ping" />
-                          Live
-                        </span>
-                        {stream.room_mode && (
-                          <span className="bg-purple-900/80 backdrop-blur-md text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border border-purple-500/20">
-                            {stream.room_mode}
+                      {/* Thumbnail frame */}
+                      <div className="relative aspect-video w-full bg-muted overflow-hidden">
+                        <Image
+                          src={stream.thumbnail_url || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=640"}
+                          alt={stream.title}
+                          fill
+                          className="object-cover group-hover:scale-103 transition-transform duration-500"
+                        />
+                        
+                        {/* Live Badge */}
+                        <div className="absolute top-3 left-3 flex gap-1.5 items-center">
+                          <span className="bg-red-500 text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
+                            <span className="w-1 h-1 bg-white rounded-full animate-ping" />
+                            Live
                           </span>
-                        )}
+
+                          {/* Lovense badge */}
+                          {hasLovense && (
+                            <span className="bg-emerald-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5">
+                              <Sliders className="h-2.5 w-2.5" /> Lovense
+                            </span>
+                          )}
+
+                          {/* Private Room badge */}
+                          {isPrivate && (
+                            <span className="bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5">
+                              <Lock className="h-2.5 w-2.5" /> Private
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Format symbol */}
+                        <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md rounded-lg p-1 text-white border border-white/10">
+                          {stream.format === "portrait" ? (
+                            <Tablet className="h-3.5 w-3.5 text-accent" />
+                          ) : (
+                            <Monitor className="h-3.5 w-3.5 text-primary" />
+                          )}
+                        </div>
+
+                        {/* View count */}
+                        <div className="absolute bottom-3 right-3 bg-black/65 backdrop-blur-md text-[10px] font-bold text-white px-2 py-0.5 rounded-full border border-white/15">
+                          {stream.viewer_count || 0} watching
+                        </div>
                       </div>
 
-                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border border-white/10">
-                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                        {stream.viewer_count || 0} penonton
-                      </div>
-                    </div>
+                      <CardHeader className="p-4 space-y-2 flex-1">
+                        <div className="flex items-center">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md">
+                            {stream.category || "General"}
+                          </span>
+                        </div>
+                        
+                        <CardTitle className="text-sm font-heading font-black line-clamp-1 group-hover:text-primary transition-colors">
+                          {stream.title}
+                        </CardTitle>
+                        
+                        <p className="text-muted-foreground text-[11px] font-semibold line-clamp-2 leading-relaxed">
+                          {stream.description || "Join the interactive stream room now!"}
+                        </p>
+                      </CardHeader>
 
-                    {/* CARD CONTENT */}
-                    <CardHeader className="p-5 flex-1 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-extrabold tracking-wider text-purple-400 bg-purple-950/50 border border-purple-900/40 px-2 py-0.5 rounded-md">
-                          {stream.category || "General"}
-                        </span>
-                      </div>
-                      <CardTitle className="text-lg font-bold group-hover:text-purple-400 transition-colors line-clamp-1 leading-snug">
-                        {stream.title}
-                      </CardTitle>
-                      <p className="text-neutral-400 text-xs line-clamp-2 leading-relaxed">
-                        {stream.description || "Siaran langsung interaktif seru. Gabung obrolan sekarang!"}
-                      </p>
-                    </CardHeader>
-
-                    {/* HOST FOOTER */}
-                    <CardFooter className="p-5 pt-0 border-t border-neutral-900 bg-neutral-950 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold uppercase shadow">
-                        {stream.host?.username?.charAt(0) || "H"}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-neutral-200">{stream.host?.username || "Host Terverifikasi"}</span>
-                        <span className="text-[9px] text-neutral-500">Kreator NVide</span>
-                      </div>
-                    </CardFooter>
-                  </Card>
-                </Link>
-              ))}
+                      <CardFooter className="p-4 pt-0 border-t border-primary/5 bg-primary/2.5 flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-black uppercase">
+                          {stream.host?.username?.charAt(0) || "H"}
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="text-xs font-bold leading-none text-foreground">@{stream.host?.username || "Verified Host"}</span>
+                          <span className="text-[9px] text-muted-foreground mt-0.5">NVide Partner Star</span>
+                        </div>
+                      </CardFooter>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
 
-            {/* PAGINATION CONTROLS */}
+            {/* Pagination numbers */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-4 bg-neutral-950 border border-neutral-900 py-3.5 rounded-xl max-w-sm mx-auto">
+              <div className="flex items-center justify-center gap-4 py-3 max-w-xs mx-auto">
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                  className="hover:bg-neutral-900 text-neutral-400 hover:text-white"
+                  className="border-primary/20 text-xs font-bold rounded-xl h-8 px-3"
                 >
-                  Sebelumnya
+                  Prev
                 </Button>
-                <span className="text-sm font-bold text-neutral-300">
-                  {currentPage} dari {totalPages}
+                <span className="text-xs font-bold text-muted-foreground">
+                  {currentPage} of {totalPages}
                 </span>
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="hover:bg-neutral-900 text-neutral-400 hover:text-white"
+                  className="border-primary/20 text-xs font-bold rounded-xl h-8 px-3"
                 >
-                  Berikutnya
+                  Next
                 </Button>
               </div>
             )}
+
           </div>
         )}
+
       </main>
+      <BottomNav />
     </div>
   );
 }

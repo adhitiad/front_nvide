@@ -72,9 +72,11 @@ export default function PrivateCallPage() {
         }
 
         // Setup Signaling WebSocket connection
-        const token = localStorage.getItem("access_token");
+        const token = await getAccessToken().catch(() => "");
         const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-        const ws = new WebSocket(`${WS_URL}/ws/call/${callId}?token=${token}`);
+        const ws = new WebSocket(token
+          ? `${WS_URL}/ws/call/${callId}?token=${encodeURIComponent(token)}`
+          : `${WS_URL}/ws/call/${callId}`);
         wsRef.current = ws;
 
         ws.onopen = () => {

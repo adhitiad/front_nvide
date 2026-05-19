@@ -19,6 +19,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { useShare } from "@/hooks/useShare";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -36,6 +37,7 @@ export default function StreamClipsPage({ params }: PageProps) {
   } = useClip(streamId);
 
   const [activeClipUrl, setActiveClipUrl] = useState<string | null>(null);
+  const { share } = useShare();
 
   const handleRegenerate = async () => {
     try {
@@ -46,9 +48,13 @@ export default function StreamClipsPage({ params }: PageProps) {
     }
   };
 
-  const handleShare = (title: string) => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success(`Tautan untuk klip "${title}" berhasil disalin ke papan klip! 🔗`);
+  const handleShare = async (title: string) => {
+    const usedNative = await share({
+      title: `NVide Clip: ${title}`,
+      text: "Lihat klip ini di NVide Live",
+      url: window.location.href,
+    });
+    toast.success(usedNative ? "Klip dibagikan." : `Tautan untuk klip "${title}" berhasil disalin ke papan klip!`);
   };
 
   const handleDownload = (title: string) => {

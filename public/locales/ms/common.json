@@ -1,0 +1,106 @@
+{
+  "nav": {
+    "home": "Home",
+    "streams": "Streams",
+    "wallet": "Wallet",
+    "profile": "Profile",
+    "admin": "Admin Panel",
+    "host": "Host Panel",
+    "agency": "Agency Panel",
+    "logout": "Logout"
+  },
+  "theme": {
+    "title": "Select Theme",
+    "light": "Sweet Light",
+    "dark": "Neon Dark",
+    "system": "OS Harmony"
+  },
+  "onboarding": {
+    "user_title": "Welcome to NVide Live!",
+    "user_subtitle": "Let's customize your playful experience.",
+    "step_lang": "Choose Language",
+    "step_theme": "Select Theme",
+    "step_interests": "Pick Interests",
+    "host_title": "Host Onboarding Wizard",
+    "agency_title": "Agency Onboarding Wizard",
+    "skip": "Skip Onboarding",
+    "next": "Next Step",
+    "back": "Back",
+    "finish": "Finish & Start",
+    "categories": {
+      "gaming": "Anime Gaming",
+      "cosplay": "Hot Cosplay",
+      "talk": "Chitchat ASMR",
+      "music": "Anime Sing & Dance",
+      "private": "1-on-1 VIP Room"
+    }
+  },
+  "dashboard": {
+    "admin": {
+      "title": "Admin Dashboard",
+      "overview": "Overview",
+      "users": "Users",
+      "hosts": "Hosts",
+      "agencies": "Agencies",
+      "kyc": "KYC Verification",
+      "reports": "Reports",
+      "revenue": "Revenue",
+      "settings": "Settings",
+      "stats": {
+        "total_users": "Total Users",
+        "total_hosts": "Total Hosts",
+        "total_agencies": "Total Agencies",
+        "active_streams": "Active Streams",
+        "today_tx": "Today's Trans.",
+        "banned_users": "Banned Users"
+      },
+      "kyc_pending": "KYC Pending Review",
+      "reports_title": "Content Violation Reports",
+      "user_management": "User Management"
+    },
+    "host": {
+      "title": "Host Studio",
+      "today_rev": "Today's Earnings",
+      "views": "Views",
+      "likes": "Likes",
+      "gifts": "Gifts Received",
+      "subscribers": "Active Subs",
+      "ai_quota": "AI Clip Quota",
+      "rev_chart": "Earnings Chart",
+      "history": "Stream History",
+      "requests": "Show Requests",
+      "settings": "Studio Settings",
+      "rate_per_min": "Private Call Rate (per min)",
+      "private_profile": "Private Profile Mode",
+      "allow_incognito": "Allow Incognito Viewers"
+    },
+    "agency": {
+      "title": "Agency HQ",
+      "total_hosts": "Managed Hosts",
+      "total_rev": "Hosts Total Revenue",
+      "commission": "Agency Share",
+      "add_host": "Add Host to Agency",
+      "invite_host": "Invite Host",
+      "remove_host": "Remove Host",
+      "commission_rate": "Default Commission Rate (%)"
+    }
+  },
+  "ai_clip": {
+    "title": "VIP AI Clip Subscription",
+    "subtitle": "Get automatically generated highlights from your streams with AI!",
+    "quota_info": "Remaining AI Clip Quota",
+    "history": "Subscription History",
+    "generate": "Generate AI Clip",
+    "generating": "AI is clipping your stream...",
+    "upgrade_prompt": "Your AI Clip quota is empty. Please upgrade to a higher VIP tier!",
+    "vip1": "VIP Starter Pack",
+    "vip2": "VIP Pro Creator",
+    "vip3": "VIP Elite Streamer",
+    "promo_tag": "Special promo for 1st host!"
+  },
+  "alerts": {
+    "lgbt_banned": "Your account has been permanently banned due to violation of community policies (Anti-LGBT/Violence rules). Appeal is denied.",
+    "kyc_denied_region": "KYC verification failed. Your country/region is currently not accepted for hosting. Accepted regions: Indonesia, Malaysia, Philippines, Vietnam, Thailand, Singapore, Spain, Brazil.",
+    "error_occurred": "An error occurred. Please try again."
+  }
+}

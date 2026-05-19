@@ -161,12 +161,14 @@ export default function ChatPage() {
     }
 
     // Inisialisasi WebSocket koneksi ke route /ws/private-chat/
-    const token = localStorage.getItem("access_token");
+    const token = await getAccessToken().catch(() => "");
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    
+
     if (wsRef.current) wsRef.current.close();
 
-    const socket = new WebSocket(`${WS_URL}/ws/private-chat/${conv.id}?token=${token}`);
+    const socket = new WebSocket(token
+      ? `${WS_URL}/ws/private-chat/${conv.id}?token=${encodeURIComponent(token)}`
+      : `${WS_URL}/ws/private-chat/${conv.id}`);
     
     socket.onmessage = (event) => {
       try {

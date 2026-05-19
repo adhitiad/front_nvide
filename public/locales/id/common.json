@@ -1,0 +1,106 @@
+{
+  "nav": {
+    "home": "Beranda",
+    "streams": "Siaran Live",
+    "wallet": "Dompet",
+    "profile": "Profil",
+    "admin": "Panel Admin",
+    "host": "Panel Host",
+    "agency": "Panel Agensi",
+    "logout": "Keluar"
+  },
+  "theme": {
+    "title": "Pilih Tema",
+    "light": "Terang Imut",
+    "dark": "Gelap Neon",
+    "system": "Harmoni Sistem"
+  },
+  "onboarding": {
+    "user_title": "Selamat Datang di NVide Live!",
+    "user_subtitle": "Ayo sesuaikan pengalaman bermainmu.",
+    "step_lang": "Pilih Bahasa",
+    "step_theme": "Pilih Tema",
+    "step_interests": "Pilih Minat",
+    "host_title": "Panduan Pendaftaran Host",
+    "agency_title": "Panduan Pendaftaran Agensi",
+    "skip": "Lewati Panduan",
+    "next": "Lanjut",
+    "back": "Kembali",
+    "finish": "Selesai & Mulai",
+    "categories": {
+      "gaming": "Game Anime",
+      "cosplay": "Cosplay Keren",
+      "talk": "Ngobrol ASMR",
+      "music": "Nyanyi & Dansa Anime",
+      "private": "Ruang VIP 1-lawan-1"
+    }
+  },
+  "dashboard": {
+    "admin": {
+      "title": "Dashboard Admin",
+      "overview": "Ikhtisar",
+      "users": "Pengguna",
+      "hosts": "Host",
+      "agencies": "Agensi",
+      "kyc": "Verifikasi KYC",
+      "reports": "Laporan Laporan",
+      "revenue": "Pendapatan",
+      "settings": "Pengaturan",
+      "stats": {
+        "total_users": "Total Pengguna",
+        "total_hosts": "Total Host",
+        "total_agencies": "Total Agensi",
+        "active_streams": "Stream Aktif",
+        "today_tx": "Transaksi Hari Ini",
+        "banned_users": "User Dibanned"
+      },
+      "kyc_pending": "KYC Menunggu Verifikasi",
+      "reports_title": "Laporan Pelanggaran Konten",
+      "user_management": "Manajemen Pengguna"
+    },
+    "host": {
+      "title": "Studio Host",
+      "today_rev": "Pendapatan Hari Ini",
+      "views": "Tayangan",
+      "likes": "Suka",
+      "gifts": "Gift Diterima",
+      "subscribers": "Langganan Aktif",
+      "ai_quota": "Kuota Klip AI",
+      "rev_chart": "Grafik Pendapatan",
+      "history": "Riwayat Stream",
+      "requests": "Permintaan Tampil",
+      "settings": "Pengaturan Studio",
+      "rate_per_min": "Tarif Panggilan Privat (per menit)",
+      "private_profile": "Mode Profil Privat",
+      "allow_incognito": "Izinkan Penonton Anonim"
+    },
+    "agency": {
+      "title": "HQ Agensi",
+      "total_hosts": "Host Dikelola",
+      "total_rev": "Total Pendapatan Host",
+      "commission": "Komisi Agensi",
+      "add_host": "Tambah Host ke Agensi",
+      "invite_host": "Undang Host",
+      "remove_host": "Keluarkan Host",
+      "commission_rate": "Tarif Komisi Default (%)"
+    }
+  },
+  "ai_clip": {
+    "title": "Langganan VIP Klip AI",
+    "subtitle": "Dapatkan potongan video klip terbaik secara otomatis dari siaranmu menggunakan teknologi AI!",
+    "quota_info": "Sisa Kuota Klip AI",
+    "history": "Riwayat Langganan",
+    "generate": "Buat Klip AI",
+    "generating": "AI sedang memotong siaranmu...",
+    "upgrade_prompt": "Kuota Klip AI Anda sudah habis. Silakan upgrade ke paket VIP yang lebih tinggi!",
+    "vip1": "Paket VIP Starter",
+    "vip2": "VIP Pro Kreator",
+    "vip3": "VIP Elite Streamer",
+    "promo_tag": "Promo spesial host pertama!"
+  },
+  "alerts": {
+    "lgbt_banned": "Akun Anda telah dibanned permanen karena melanggar aturan komunitas (Aturan Anti-LGBT/Kekerasan). Banding ditolak.",
+    "kyc_denied_region": "Verifikasi KYC ditolak. Wilayah negara Anda saat ini belum didukung untuk siaran langsung. Negara yang diterima: Indonesia, Malaysia, Filipina, Vietnam, Thailand, Singapura, Spanyol, Brasil.",
+    "error_occurred": "Terjadi kesalahan. Silakan coba kembali."
+  }
+}

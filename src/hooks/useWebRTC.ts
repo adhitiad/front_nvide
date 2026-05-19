@@ -21,11 +21,11 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
       return;
     }
 
-    const token = localStorage.getItem("access_token");
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    
+    const wsUrl = `${WS_URL}/api/v1/streams/${streamId}/signal?role=${role}`;
+
     // Inisialisasi WebSocket Signaling
-    const ws = new WebSocket(`${WS_URL}/api/v1/streams/${streamId}/signal?token=${token}&role=${role}`);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     const setupPeerConnection = async () => {
@@ -108,12 +108,10 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
       }
 
       // Create Offer
-      // Baik host maupun viewer mengirim offer ke server (Pion) dalam desain ini
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         console.log("[WebRTC] Local offer created & set. Sending to server...");
-        
         ws.send(JSON.stringify({
           type: 'offer',
           data: offer
@@ -142,7 +140,7 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
       try {
         const msg = JSON.parse(event.data);
         const pc = pcRef.current;
-        
+
         if (msg.type === 'renegotiate') {
           console.log("[WebRTC] Received renegotiate request from server. Re-establishing connection...");
           setupPeerConnection();

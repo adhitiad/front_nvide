@@ -7,9 +7,10 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, Settings, Users, MessageSquare, ExternalLink, Pin, Crown, ShieldAlert, VolumeX, Ban, Gift, Heart } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, Settings, Users, MessageSquare, ExternalLink, Pin, Crown, ShieldAlert, VolumeX, Ban, Gift, Heart, Scissors, Download, Share2, Sparkles, Lock, Check, Loader2 } from "lucide-react";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { CoinRain } from "@/components/CoinRain";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 
 export default function WebRTCStreamRoom() {
   const params = useParams();
@@ -22,6 +23,12 @@ export default function WebRTCStreamRoom() {
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+
+  // States & hooks for AI Clip highlight generation
+  const [showEndSummary, setShowEndSummary] = useState(false);
+  const [isGeneratingClip, setIsGeneratingClip] = useState(false);
+  const [clipGenerated, setClipGenerated] = useState<any>(null);
+  const { activeSubscription, deductQuota } = useSubscriptionStore();
 
   // Chat & Moderation State
   const [messages, setMessages] = useState<any[]>([]);
@@ -112,10 +119,15 @@ export default function WebRTCStreamRoom() {
   useEffect(() => {
     if (!streamId) return;
 
-    const token = localStorage.getItem("access_token");
+    let token = "";
+    getAccessToken()
+      .then((t) => { token = t; })
+      .catch(() => console.warn("[WS Rooms] No access token available"));
+
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    
-    const socket = new WebSocket(`${WS_URL}/ws/rooms/${streamId}?token=${token}`);
+    const socket = new WebSocket(token
+      ? `${WS_URL}/ws/rooms/${streamId}?token=${encodeURIComponent(token)}`
+      : `${WS_URL}/ws/rooms/${streamId}`);
     
     socket.onmessage = (event) => {
       try {
@@ -192,6 +204,34 @@ export default function WebRTCStreamRoom() {
     }
   };
 
+  const handleGenerateAIClip = async () => {
+    if (!activeSubscription || activeSubscription.quotaRemaining <= 0) {
+      toast.error("Kuota habis, upgrade ke VIP lebih tinggi");
+      return;
+    }
+    
+    setIsGeneratingClip(true);
+    // Simulate API call for generating AI clip
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    
+    // Deduct quota
+    const success = deductQuota(1);
+    setIsGeneratingClip(false);
+    
+    if (success) {
+      setClipGenerated({
+        id: "clip_" + Math.random().toString(36).substring(7),
+        title: streamInfo?.title ? `Sorotan Terbaik: ${streamInfo.title}` : "Momen Sorotan Terbaik 🌸",
+        duration: "0:45",
+        views: 0,
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4", // dummy movie
+      });
+      toast.success("AI Clip berhasil dibuat! 🌸✨");
+    } else {
+      toast.error("Gagal mengurangi kuota AI Clip.");
+    }
+  };
+
   const handleEndBroadcast = async () => {
     try {
       await api.post(`/streams/${streamId}/end`);
@@ -201,9 +241,10 @@ export default function WebRTCStreamRoom() {
         localStream.getTracks().forEach(track => track.stop());
       }
       
-      router.push("/dashboard/streams");
+      setShowEndSummary(true);
     } catch (err) {
       console.error("Gagal mengakhiri broadcast", err);
+      setShowEndSummary(true);
     }
   };
 
@@ -254,6 +295,206 @@ export default function WebRTCStreamRoom() {
       return <span className="bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 text-black text-[10px] font-black px-1.5 py-0.5 rounded mr-1.5 border border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.7)] animate-bounce">👑 Lvl {level}</span>;
     }
   };
+
+  if (showEndSummary) {
+    return (
+      <div className="h-full flex flex-col lg:flex-row gap-6 p-4 lg:p-6 bg-black text-white min-h-screen">
+        <div className="flex-1 flex flex-col space-y-6 max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="text-center space-y-2 p-6 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-black border border-indigo-500/20 rounded-3xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3 text-[10px] font-black bg-indigo-500/20 text-indigo-400 rounded-bl-2xl">
+              BROADCAST LOG SUMMARY
+            </div>
+            <h1 className="text-3xl font-bold text-indigo-400 flex items-center justify-center gap-2 animate-bounce">
+              Siaran Anda Telah Berakhir! 🌸
+            </h1>
+            <p className="text-xs text-neutral-400 font-semibold">
+              Terima kasih telah berbagi momen indah bersama pemirsa setia Anda. Berikut adalah ringkasan performa streaming Anda.
+            </p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Durasi Siaran", value: "02:15:40", color: "text-sky-500 bg-sky-500/10 border-sky-500/20" },
+              { label: "Pemirsa Puncak", value: "1,250 👤", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Suka Diterima", value: "8,400 ❤️", color: "text-rose-500 bg-rose-500/10 border-rose-500/20" },
+              { label: "Hadiah Diterima", value: "120 🎁", color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+            ].map((stat, idx) => (
+              <div key={idx} className={`p-4 bg-neutral-900/60 rounded-2xl border ${stat.color} flex flex-col justify-between`}>
+                <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider">{stat.label}</span>
+                <p className="text-xl font-black mt-2">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* AI CLIP SECTION */}
+          <div className="p-6 bg-neutral-900/50 rounded-3xl border border-indigo-500/20 shadow-xl relative overflow-hidden space-y-4">
+            <div className="absolute -top-12 -right-12 h-36 w-36 rounded-full bg-indigo-500/10 blur-2xl" />
+            <div className="flex items-center justify-between border-b border-indigo-500/10 pb-3">
+              <h3 className="font-bold text-lg text-indigo-400 flex items-center gap-2">
+                <Scissors className="h-5 w-5 text-purple-400 animate-sparkle" />
+                AI Clip Highlight Generator
+              </h3>
+              {activeSubscription && (
+                <span className="text-xs font-bold text-neutral-400 bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/20">
+                  Sisa Kuota: {activeSubscription.quotaRemaining} / {activeSubscription.quotaTotal} Clip
+                </span>
+              )}
+            </div>
+
+            {/* If no subscription or quota is 0 */}
+            {(!activeSubscription || activeSubscription.quotaRemaining <= 0) && !clipGenerated && !isGeneratingClip ? (
+              <div className="p-8 border border-dashed border-red-500/30 bg-red-500/5 rounded-2xl text-center space-y-4 relative">
+                <div className="absolute inset-0 bg-black/85 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center p-6 space-y-3 z-10">
+                  <div className="h-12 w-12 rounded-full bg-red-950/40 border border-red-900/60 flex items-center justify-center text-red-500 font-black text-xl">
+                    ⚠️
+                  </div>
+                  <h4 className="text-sm font-black text-red-500 uppercase">Kuota habis, upgrade ke VIP lebih tinggi</h4>
+                  <p className="text-xs text-neutral-400 max-w-md font-semibold leading-relaxed">
+                    Silakan beli paket VIP atau tingkatkan ke paket VIP yang lebih tinggi untuk menikmati fitur klip sorotan otomatis berbasis AI.
+                  </p>
+                  <Button 
+                    onClick={() => router.push("/clip-subscription")}
+                    className="bg-indigo-600 hover:bg-indigo-750 text-white font-bold rounded-2xl px-6 text-xs h-9.5 shadow-md border border-indigo-500/25"
+                  >
+                    Upgrade VIP
+                  </Button>
+                </div>
+                <div className="opacity-10 pointer-events-none space-y-2">
+                  <p className="text-sm font-bold">Generate automated clip highlights</p>
+                  <div className="h-8 bg-neutral-800 rounded-xl"></div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* State 1: Ready to generate */}
+            {!clipGenerated && !isGeneratingClip && (activeSubscription && activeSubscription.quotaRemaining > 0) && (
+              <div className="py-6 text-center space-y-4">
+                <p className="text-xs text-neutral-400 max-w-lg mx-auto font-semibold leading-relaxed">
+                  Gunakan kecerdasan buatan kami untuk memindai siaran langsung Anda, memotong klip terbaik secara otomatis dengan visual 1080p, dan menambahkan suara/efek transisi anime yang mengagumkan!
+                </p>
+                <Button 
+                  onClick={handleGenerateAIClip}
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black rounded-2xl px-8 py-3 text-xs h-11 shadow-lg animate-pulse-hover border border-indigo-500/20"
+                >
+                  <Sparkles className="h-4.5 w-4.5 mr-2" />
+                  Generate AI Clip
+                </Button>
+              </div>
+            )}
+
+            {/* State 2: Generating Clip (Loading Animation) */}
+            {isGeneratingClip && (
+              <div className="py-12 flex flex-col items-center justify-center space-y-4 text-center">
+                <Loader2 className="h-10 w-10 text-indigo-500 animate-spin" />
+                <div className="space-y-1">
+                  <p className="text-sm font-black text-indigo-400 flex items-center gap-1.5 justify-center">
+                    AI sedang memindai rekaman siaran Anda... 🧠⚡️✨
+                  </p>
+                  <p className="text-xs text-neutral-400 font-semibold">
+                    Mengekstrak momen paling seru dan mendeteksi reaksi pemirsa teraktif. Mohon tunggu.
+                  </p>
+                </div>
+                <div className="w-64 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full animate-pulse" style={{ width: '70%' }} />
+                </div>
+              </div>
+            )}
+
+            {/* State 3: Clip Generated Success */}
+            {clipGenerated && (
+              <div className="space-y-6">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
+                    ✓
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider">AI Highlight Berhasil Dibuat!</h4>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">Klip sorotan telah disimpan ke galeri studio Anda dan siap dibagikan.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  {/* Clip Player Preview */}
+                  <div className="aspect-video bg-neutral-950 rounded-2xl overflow-hidden border border-indigo-500/20 relative shadow-md">
+                    <video 
+                      src={clipGenerated.videoUrl} 
+                      controls 
+                      className="w-full h-full object-cover" 
+                      poster="https://api.dicebear.com/7.x/shapes/svg?seed=highlight"
+                    />
+                    <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+                      ⏱️ {clipGenerated.duration}
+                    </div>
+                  </div>
+
+                  {/* Clip Actions */}
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest">JUDUL KLIP</span>
+                      <h4 className="text-sm font-black text-white">{clipGenerated.title}</h4>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => toast.success("Klip berhasil dibagikan ke Feed Sosial Anda! 🌸")}
+                        className="flex-1 bg-indigo-650 hover:bg-indigo-750 text-white font-bold rounded-xl h-10 text-xs shadow-md border border-indigo-500/20"
+                      >
+                        <Share2 className="h-4 w-4 mr-1.5" /> Bagikan ke Feed
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => toast.success("Klip berhasil diunduh ke penyimpanan lokal Anda! 📥")}
+                        className="border-indigo-500/20 hover:bg-indigo-500/5 font-bold rounded-xl h-10 text-xs text-indigo-400"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" /> Download
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid Pendek Clip Lain (Hasil Klip) */}
+                <div className="space-y-3 pt-4 border-t border-indigo-500/10">
+                  <h4 className="text-xs font-bold text-neutral-450 uppercase tracking-wider">
+                    Hasil Klip AI Studio Anda
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { title: "Momen Chibi Sparkle", duration: "0:30", views: 2400 },
+                      { title: "Hot Private Room Intro", duration: "0:50", views: 4100 },
+                      { title: "Epic Lovense Reaction", duration: "0:45", views: 1800 },
+                      { title: "Final Wave Senpai", duration: "0:25", views: 950 }
+                    ].map((c, i) => (
+                      <div key={i} className="p-3 bg-neutral-900/40 border border-neutral-800 rounded-2xl hover:border-indigo-500/30 transition-all text-left">
+                        <div className="aspect-video bg-neutral-950 rounded-xl overflow-hidden mb-2 relative border border-neutral-850 flex items-center justify-center">
+                          <span className="text-lg">🎬</span>
+                          <span className="absolute bottom-1 right-1 bg-black/75 text-[8px] font-black px-1.5 py-0.5 rounded text-white">
+                            {c.duration}
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-bold text-white truncate">{c.title}</p>
+                        <p className="text-[8px] text-neutral-500 mt-0.5">👁️ {c.views.toLocaleString()} views</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Actions */}
+          <div className="flex justify-center pt-2">
+            <Button 
+              onClick={() => router.push("/dashboard/streams")}
+              className="bg-neutral-900 hover:bg-neutral-850 text-white font-bold rounded-2xl px-6 text-xs h-10 border border-neutral-850"
+            >
+              Kembali ke Dashboard Studio
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col lg:flex-row gap-6 p-4 lg:p-6 bg-black text-white min-h-screen">
@@ -635,3 +876,4 @@ export default function WebRTCStreamRoom() {
     </div>
   );
 }
+

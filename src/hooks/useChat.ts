@@ -15,7 +15,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
   const setViewerCount = useStreamStore((state) => state.setViewerCount);
   const setLikes = useStreamStore((state) => state.setLikes);
   const updateUserXP = useStreamStore((state) => state.updateUserXP);
-  
+
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
@@ -23,22 +23,12 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
   const connect = useCallback(() => {
     if (!streamId) return;
 
-    // Bersihkan koneksi lama jika ada
     if (socketRef.current) {
       socketRef.current.close();
     }
 
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      console.warn("[WebSocket Chat] Token tidak ditemukan, menunda koneksi...");
-      return;
-    }
-
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    // Sesuai route backend: /ws/chat/{stream_id}?token={token}
-    const wsUrl = `${WS_URL}/ws/chat/${streamId}?token=${token}`;
-    
-    console.log(`[WebSocket Chat] Menghubungkan ke: ws://.../ws/chat/${streamId}`);
+    const wsUrl = `${WS_URL}/ws/chat/${streamId}`;
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
@@ -46,8 +36,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
       console.log("[WebSocket Chat] Koneksi berhasil dibuka!");
       setIsConnected(true);
       reconnectAttemptsRef.current = 0;
-      
-      // Tambahkan pesan sistem lokal
+
       addChatMessage({
         id: `sys-conn-${Date.now()}`,
         userId: "system",
@@ -65,14 +54,10 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
     ws.onmessage = (event) => {
       try {
         const rawData = JSON.parse(event.data);
-        console.log("[WebSocket Chat] Pesan diterima:", rawData);
-
-        // Model WSMessage backend: { type: string, payload: any, timestamp: string }
         const { type, payload, timestamp } = rawData;
 
         switch (type) {
           case "chat": {
-            // payload diperkaya oleh backend: { user_id, username, content, user_level, chat_color, is_vip, vip_rank }
             const msg: ChatMessage = {
               id: payload.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               userId: payload.user_id,
@@ -90,7 +75,6 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
           }
 
           case "gift": {
-            // payload pengiriman gift
             const giftMsg: ChatMessage = {
               id: `gift-${Date.now()}-${Math.random()}`,
               userId: payload.sender_id,
@@ -110,17 +94,15 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
               },
             };
             addChatMessage(giftMsg);
-            
-            // Pemicu visual efek koin/rain jika bernilai premium
-            if (window !== undefined) {
-              const event = new CustomEvent("trigger-gift-effect", { detail: payload });
-              window.dispatchEvent(event);
+
+            if (typeof window !== "undefined") {
+              const ev = new CustomEvent("trigger-gift-effect", { detail: payload });
+              window.dispatchEvent(ev);
             }
             break;
           }
 
           case "like": {
-            // payload like
             const likeMsg: ChatMessage = {
               id: `like-${Date.now()}-${Math.random()}`,
               userId: payload.user_id,
@@ -134,7 +116,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
               type: "like",
             };
             addChatMessage(likeMsg);
-            if (payload.like_count) {
+            if (payload.like_count !== undefined) {
               setLikes(payload.like_count);
             }
             break;
@@ -145,7 +127,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
               id: `sys-${Date.now()}`,
               userId: "system",
               username: "NVide Bot",
-              content: payload.message || payload,
+              content: payload.message || JSON.stringify(payload),
               userLevel: 99,
               chatColor: "#3B82F6",
               isVip: false,
@@ -162,7 +144,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
               id: `sys-warn-${Date.now()}`,
               userId: "system",
               username: "Peringatan Keamanan",
-              content: payload.message || payload,
+              content: payload.message || JSON.stringify(payload),
               userLevel: 99,
               chatColor: "#EF4444",
               isVip: false,
@@ -190,7 +172,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
             }
             break;
           }
-          
+
           case "xp_update": {
             if (payload.user_id === userId) {
               updateUserXP(payload.xp, payload.level, payload.xp_next);
@@ -208,11 +190,8 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
       console.warn("[WebSocket Chat] Koneksi ditutup:", event);
       setIsConnected(false);
 
-      // Coba rekoneksi otomatis dengan exponential backoff
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         const timeout = Math.pow(2, reconnectAttemptsRef.current) * 1000;
-        console.log(`[WebSocket Chat] Mencoba menyambung kembali dalam ${timeout / 1000} detik... (Percobaan ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
-        
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectAttemptsRef.current += 1;
           connect();
@@ -240,34 +219,22 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
     };
   }, [connect]);
 
-  // Fungsi untuk mengirim pesan chat
   const sendMessage = useCallback((content: string) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       toast.error("Gagal mengirim pesan: Obrolan belum terhubung");
       return false;
     }
 
-    const payload = {
-      type: "chat",
-      payload: content,
-    };
-
-    socketRef.current.send(JSON.stringify(payload));
+    socketRef.current.send(JSON.stringify({ type: "chat", payload: content }));
     return true;
   }, []);
 
-  // Fungsi untuk memicu like ke WebSocket room secara real-time
   const sendLike = useCallback(() => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return false;
     }
 
-    const payload = {
-      type: "like",
-      payload: {},
-    };
-
-    socketRef.current.send(JSON.stringify(payload));
+    socketRef.current.send(JSON.stringify({ type: "like", payload: {} }));
     return true;
   }, []);
 

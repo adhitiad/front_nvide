@@ -9,98 +9,70 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor: Menambahkan token ke setiap request
+// Request Interceptor
+// Better Auth manages session tokens via httpOnly cookies automatically.
+// The browser sends the session cookie with every same-origin /api request
+// — no manual token injection needed here.
 api.interceptors.request.use(
-  async (config) => {
-    let token = localStorage.getItem("access_token");
-
-    // Jika tidak ada access_token di localStorage, coba ambil JWT dari session Better Auth
-    if (!token && typeof window !== "undefined") {
-      try {
-        const res = await axios.get("/api/auth/token");
-        if (res.status === 200 && res.data.access_token) {
-          token = res.data.access_token;
-          localStorage.setItem("access_token", token as string);
-          localStorage.setItem("refresh_token", (res.data.refresh_token as string) || "");
-        }
-      } catch (err) {
-        // Gagal mengambil token, mungkin user belum login
-        console.warn("Gagal sinkronisasi JWT token dari Better Auth session:", err);
-      }
-    }
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config) => config,
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Menangani auto-refresh token
+// Response Interceptor
+// Since Better Auth handles session cookies, token refresh is managed
+// server-side. On a 401 the user must re-authenticate via Better Auth.
 api.interceptors.response.use(
   (response) => response.data,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // Jika error 401 dan bukan karena percobaan login ulang
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = localStorage.getItem("refresh_token");
-        if (!refreshToken) {
-          console.warn("No refresh token found, logging out...");
-          throw new Error("No refresh token");
-        }
-
-        console.log("Token expired, attempting refresh...");
-        const res = await axios.post(`${API_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
-        });
-
-        if (res.status === 200) {
-          const { access_token, refresh_token } = res.data;
-          console.log("Token refresh successful!");
-          
-          localStorage.setItem("access_token", access_token);
-          localStorage.setItem("refresh_token", refresh_token);
-
-          // Update header untuk request yang diulang
-          // Menggunakan cara yang lebih aman untuk AxiosHeaders
-          if (originalRequest.headers) {
-            if (typeof originalRequest.headers.set === 'function') {
-              originalRequest.headers.set('Authorization', `Bearer ${access_token}`);
-            } else {
-              originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
-            }
-          }
-
-          // Pastikan config baru menggunakan token terbaru
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        console.error("Refresh token failed:", refreshError);
-        // Jika refresh gagal, logout paksa
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        try {
-          await axios.post("/api/auth/sign-out");
-        } catch (signOutError) {
-          console.error("Gagal keluar dari Better Auth:", signOutError);
-        }
-        window.location.href = "/login";
-        return Promise.reject(refreshError);
-      }
+  (error) => {
+    if (error.response?.status === 401) {
+      window.location.href = "/login";
     }
-
     return Promise.reject(error);
   }
 );
 
 export default api;
 
-// Fungsi-fungsi pembantu untuk kompatibilitas kode lama
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * getSessionLoose
+ * Thin wrapper around `authClient.getSession()` that returns the raw session
+ * object (which may be null) instead of throwing when not authenticated.
+ * Used by pages that need the logged-in user's id without requring an explicit
+ * session guard or a `useSession()` hook.
+ */
+export async function getSessionLoose() {
+  const { data } = await (await import("@/lib/auth-client")).authClient.getSession();
+  return data;
+}
+
+/**
+ * getAccessToken
+ * Returns a fresh JWT access token by calling the NVide token endpoint using
+ * the Better Auth session cookie — never reads from or writes to localStorage.
+ */
+export async function getAccessToken(): Promise<string> {
+  const res = await fetch("/api/auth/token", {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`Token request failed: ${res.status}`);
+  }
+  const body = await res.json();
+  return body.access_token as string;
+}
+
+/**
+ * getSessionAuthHeader
+ * Convenience: returns `Authorization: Bearer <token>` for use when constructing
+ * a custom fetch / WebSocket URL.
+ */
+export async function getSessionAuthHeader(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  return { Authorization: `Bearer ${token}` };
+}
+
 export async function login(email: string, password: string) {
   const res = await api.post("/auth/login", { email, password });
   return res;
@@ -110,6 +82,3 @@ export async function register(username: string, email: string, password: string
   const res = await api.post("/auth/register", { username, email, password });
   return res;
 }
-
-// Gunakan 'api' langsung untuk request lainnya, contoh:
-// const res = await api.get("/auth/me");

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import api from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 
 export interface UserProfile {
   id: string;
@@ -10,6 +11,7 @@ export interface UserProfile {
   xp: number;
   xp_next: number;
   banned: boolean;
+  avatarUrl?: string;
 }
 
 export interface Wallet {
@@ -31,7 +33,7 @@ interface UserState {
   updateRole: (role: string) => void;
   updateBalance: (amount: number) => void;
   setUser: (user: UserProfile | null) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useUserStore = create<UserState>((set, get) => ({
@@ -85,9 +87,8 @@ export const useUserStore = create<UserState>((set, get) => ({
     set({ user });
   },
 
-  logout: () => {
+  logout: async () => {
     set({ user: null, wallet: null, error: null });
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    try { await authClient.signOut(); } catch { /* ignore */ }
   },
 }));

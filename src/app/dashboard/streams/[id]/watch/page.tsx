@@ -156,10 +156,15 @@ export default function WatchStreamPage() {
   useEffect(() => {
     if (!streamId) return;
 
-    const token = localStorage.getItem("access_token");
+    let token = "";
+    getAccessToken()
+      .then((t) => { token = t; })
+      .catch(() => console.warn("[WS Watch] No access token available"));
+
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    
-    const socket = new WebSocket(`${WS_URL}/ws/rooms/${streamId}?token=${token}`);
+    const socket = new WebSocket(token
+      ? `${WS_URL}/ws/rooms/${streamId}?token=${encodeURIComponent(token)}`
+      : `${WS_URL}/ws/rooms/${streamId}`);
     
     socket.onmessage = (event) => {
       try {

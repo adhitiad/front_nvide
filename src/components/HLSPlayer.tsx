@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { Play, Pause, Volume2, VolumeX, Maximize2, Loader2, Tv } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Maximize2, Loader2, Tv, Minimize2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePiP } from "@/hooks/usePiP";
+import { useShare } from "@/hooks/useShare";
 
 interface HLSPlayerProps {
   src?: string;
@@ -17,6 +19,8 @@ export function HLSPlayer({ src, poster }: HLSPlayerProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const { isActive: pipActive, enterPiP, exitPiP } = usePiP();
+  const { share } = useShare();
 
   useEffect(() => {
     const video = videoRef.current;
@@ -198,6 +202,22 @@ export function HLSPlayer({ src, poster }: HLSPlayerProps) {
               className="text-white hover:bg-white/10 rounded-full h-9 w-9"
             >
               <Maximize2 className="h-4.5 w-4.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => (pipActive ? exitPiP() : enterPiP(videoRef.current))}
+              className="text-white hover:bg-white/10 rounded-full h-9 w-9"
+            >
+              {pipActive ? <Minimize2 className="h-4.5 w-4.5" /> : <Tv className="h-4.5 w-4.5" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => share({ title: "NVide Live Stream", url: typeof window !== "undefined" ? window.location.href : "" })}
+              className="text-white hover:bg-white/10 rounded-full h-9 w-9"
+            >
+              <Share2 className="h-4.5 w-4.5" />
             </Button>
           </div>
         </div>
