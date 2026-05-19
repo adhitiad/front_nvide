@@ -1,4 +1,5 @@
 import axios from "axios";
+import { authClient } from "@/lib/auth-client";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
@@ -9,23 +10,27 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor
-// Better Auth manages session tokens via httpOnly cookies automatically.
-// The browser sends the session cookie with every same-origin /api request
-// — no manual token injection needed here.
+// Request Interceptor — no manual token injection; Better Auth handles session cookies.
 api.interceptors.request.use(
   (config) => config,
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor
-// Since Better Auth handles session cookies, token refresh is managed
-// server-side. On a 401 the user must re-authenticate via Better Auth.
+// Response Interceptor — unwrap the standardised envelope { success, data, error }.
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      window.location.href = "/login";
+      // Check Better Auth session before hard-redirecting.
+      // Only redirect if there truly is no active session.
+      try {
+        const session = await authClient.getSession();
+        if (!session?.data) {
+          window.location.href = "/login";
+        }
+      } catch {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }
@@ -36,11 +41,7 @@ export default api;
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
 /**
- * getSessionLoose
- * Thin wrapper around `authClient.getSession()` that returns the raw session
- * object (which may be null) instead of throwing when not authenticated.
- * Used by pages that need the logged-in user's id without requring an explicit
- * session guard or a `useSession()` hook.
+ * getSessionLoose returns the raw Better Auth session object (may be null).
  */
 export async function getSessionLoose() {
   const { data } = await (await import("@/lib/auth-client")).authClient.getSession();
@@ -48,9 +49,7 @@ export async function getSessionLoose() {
 }
 
 /**
- * getAccessToken
- * Returns a fresh JWT access token by calling the NVide token endpoint using
- * the Better Auth session cookie — never reads from or writes to localStorage.
+ * getAccessToken fetches a fresh JWT access token via the Better Auth token endpoint.
  */
 export async function getAccessToken(): Promise<string> {
   const res = await fetch("/api/auth/token", {
@@ -64,9 +63,7 @@ export async function getAccessToken(): Promise<string> {
 }
 
 /**
- * getSessionAuthHeader
- * Convenience: returns `Authorization: Bearer <token>` for use when constructing
- * a custom fetch / WebSocket URL.
+ * getSessionAuthHeader returns an Authorization header for WebSocket / custom fetch.
  */
 export async function getSessionAuthHeader(): Promise<Record<string, string>> {
   const token = await getAccessToken();
