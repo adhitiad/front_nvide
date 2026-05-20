@@ -56,8 +56,8 @@ export function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
         {user ? (
           <div className="flex items-center gap-2 pl-2 border-l border-primary/10">
             <div className="h-8 w-8 rounded-full border border-primary bg-primary/10 flex items-center justify-center text-primary font-bold overflow-hidden shadow-sm relative group">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-4 w-4" />
               )}

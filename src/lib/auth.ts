@@ -1,14 +1,25 @@
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { Pool } from "pg";
+import { validateEnv } from "./env";
+
+// Fail-fast: validate server-side environment variables at module load time
+validateEnv();
 
 const globalForPool = globalThis as unknown as { pool: Pool | undefined };
 
-export const pool = globalForPool.pool ?? new Pool({
+// Always recreate pool to pick up config changes during HMR.
+// End the stale cached pool (if any) in the background.
+if (globalForPool.pool) {
+    globalForPool.pool.end().catch(() => {});
+}
+
+export const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 3,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 10000,
+    ssl: { rejectUnauthorized: false },
 });
 
 if (process.env.NODE_ENV !== "production") {

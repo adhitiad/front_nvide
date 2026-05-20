@@ -10,9 +10,37 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor — no manual token injection; Better Auth handles session cookies.
+// ── In-memory token cache ────────────────────────────────────────────────────
+let _cachedToken: string | null = null;
+let _tokenExpiresAt = 0; // epoch ms
+
+async function getCachedAccessToken(): Promise<string | null> {
+  // Return cached token if still valid (with 60s margin)
+  if (_cachedToken && Date.now() < _tokenExpiresAt - 60_000) {
+    return _cachedToken;
+  }
+  try {
+    const res = await fetch("/api/auth/token", { credentials: "include" });
+    if (!res.ok) return null;
+    const body = await res.json();
+    _cachedToken = body.access_token || null;
+    // Token expires in 15 min; cache for ~14 min
+    _tokenExpiresAt = Date.now() + 14 * 60 * 1000;
+    return _cachedToken;
+  } catch {
+    return null;
+  }
+}
+
+// Request Interceptor — attach JWT Bearer token for the Go backend.
 api.interceptors.request.use(
-  (config) => config,
+  async (config) => {
+    const token = await getCachedAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
   (error) => Promise.reject(error)
 );
 

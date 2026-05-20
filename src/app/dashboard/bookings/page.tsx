@@ -56,7 +56,8 @@ export default function BookingsPage() {
       try {
         setLoading(true);
         // 1. Fetch available hosts (using active streams as host catalog)
-        const streamList = await api.get("/streams") as any[];
+        const streamRes = await api.get("/streams") as any;
+        const streamList = Array.isArray(streamRes) ? streamRes : (streamRes?.data || []);
         const hostMap = new Map();
         streamList.forEach((s: any) => {
           if (s.host) {
@@ -66,13 +67,13 @@ export default function BookingsPage() {
         setHosts(Array.from(hostMap.values()));
 
         // 2. Fetch User requested bookings
-        const userB = await api.get("/bookings") as any[];
-        setMyBookings(userB || []);
+        const userBRes = await api.get("/bookings") as any;
+        setMyBookings(Array.isArray(userBRes) ? userBRes : (userBRes?.data || []));
 
         // 3. If host, fetch host bookings
         if (session?.user?.role === "host" || session?.user?.role === "admin") {
-          const hostB = await api.get("/host/bookings") as any[];
-          setHostBookings(hostB || []);
+          const hostBRes = await api.get("/host/bookings") as any;
+          setHostBookings(Array.isArray(hostBRes) ? hostBRes : (hostBRes?.data || []));
         }
       } catch (err) {
         console.error("Gagal mengambil data booking", err);
@@ -90,8 +91,9 @@ export default function BookingsPage() {
     async function fetchSlots() {
       try {
         setLoadingSlots(true);
-        const slots = await api.get(`/api/v1/hosts/${selectedHost.id}/available-slots?date=${selectedDate}`) as any[];
-        setAvailableSlots(slots || []);
+        const slotsRes = await api.get(`/hosts/${selectedHost.id}/available-slots?date=${selectedDate}`) as any;
+        const slots = Array.isArray(slotsRes) ? slotsRes : (slotsRes?.data || []);
+        setAvailableSlots(slots);
         if (slots && slots.length > 0) {
           setSelectedSlot(slots[0].start_time || "");
         } else {
@@ -143,8 +145,8 @@ export default function BookingsPage() {
       setSelectedHost(null);
 
       // Refresh list
-      const userB = await api.get("/bookings") as any[];
-      setMyBookings(userB || []);
+      const userBRes2 = await api.get("/bookings") as any;
+      setMyBookings(Array.isArray(userBRes2) ? userBRes2 : (userBRes2?.data || []));
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Saldo Koin NV tidak cukup untuk melakukan booking!");
     }
@@ -157,8 +159,8 @@ export default function BookingsPage() {
       toast.success("Booking berhasil disetujui!");
       
       // Refresh list
-      const hostB = await api.get("/host/bookings") as any[];
-      setHostBookings(hostB || []);
+      const hostBRes2 = await api.get("/host/bookings") as any;
+      setHostBookings(Array.isArray(hostBRes2) ? hostBRes2 : (hostBRes2?.data || []));
     } catch (err) {
       toast.error("Gagal menyetujui booking");
     }
@@ -177,8 +179,8 @@ export default function BookingsPage() {
       setRejectReason("");
 
       // Refresh list
-      const hostB = await api.get("/host/bookings") as any[];
-      setHostBookings(hostB || []);
+      const hostBRes3 = await api.get("/host/bookings") as any;
+      setHostBookings(Array.isArray(hostBRes3) ? hostBRes3 : (hostBRes3?.data || []));
     } catch (err) {
       toast.error("Gagal menolak booking");
     }
@@ -251,7 +253,7 @@ export default function BookingsPage() {
                     <p className="text-neutral-500 text-xs italic">Tidak ada host aktif saat ini.</p>
                   ) : (
                     <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto pr-1">
-                      {hosts.map((host) => (
+                      {hosts?.map((host) => (
                         <button
                           key={host.id}
                           onClick={() => setSelectedHost(host)}
@@ -305,8 +307,8 @@ export default function BookingsPage() {
                         </p>
                       ) : (
                         <div className="grid grid-cols-3 gap-1.5 max-h-24 overflow-y-auto">
-                          {availableSlots.map((slot) => (
-                            <button
+                          {availableSlots?.map((slot) => (
+                            <Button
                               type="button"
                               key={slot.start_time}
                               onClick={() => setSelectedSlot(slot.start_time)}
@@ -317,7 +319,7 @@ export default function BookingsPage() {
                               }`}
                             >
                               {slot.start_time?.slice(0, 5)}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       )}
@@ -411,7 +413,7 @@ export default function BookingsPage() {
                       Belum ada permintaan booking masuk dari penonton.
                     </div>
                   ) : (
-                    hostBookings.map((b) => (
+                    hostBookings?.map((b) => (
                       <div key={b.id} className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -501,7 +503,7 @@ export default function BookingsPage() {
                     Belum ada reservasi jadwal diajukan. Mulai booking di sebelah kiri!
                   </div>
                 ) : (
-                  myBookings.map((b) => (
+                  myBookings?.map((b: any) => (
                     <div key={b.id} className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">

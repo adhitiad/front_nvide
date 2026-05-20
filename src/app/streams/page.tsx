@@ -63,7 +63,7 @@ export default function StreamsPage() {
   };
 
   // Filter logic
-  const filteredStreams = streams.filter((stream) => {
+  const filteredStreams = (streams || []).filter((stream) => {
     // 1. Text search
     const text = searchQuery.toLowerCase();
     const titleMatch = stream.title.toLowerCase().includes(text);

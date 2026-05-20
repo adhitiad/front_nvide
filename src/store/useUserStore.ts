@@ -1,26 +1,8 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import api from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-
-export interface UserProfile {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-  level: number;
-  xp: number;
-  xp_next: number;
-  banned: boolean;
-  avatarUrl?: string;
-}
-
-export interface Wallet {
-  id: string;
-  user_id: string;
-  balance: number;
-  currency: string;
-  updated_at: string;
-}
+import type { ApiEnvelope, UserProfile, Wallet } from "@/lib/types/api";
 
 interface UserState {
   user: UserProfile | null;
@@ -36,22 +18,23 @@ interface UserState {
   logout: () => Promise<void>;
 }
 
-export const useUserStore = create<UserState>((set, get) => ({
-  user: null,
-  wallet: null,
-  loading: false,
-  error: null,
+export const useUserStore = create<UserState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      wallet: null,
+      loading: false,
+      error: null,
 
   fetchProfile: async () => {
     set({ loading: true, error: null });
     try {
-      // Endpoint backend: GET /auth/me atau GET /users/profile
-      const data: any = await api.get("/auth/me");
-      const profile = data?.data || data;
+      const envelope: ApiEnvelope<UserProfile> = await api.get("/auth/me");
+      const profile = envelope.data;
       set({ user: profile, loading: false });
       return profile;
     } catch (err: any) {
-      const errMsg = err.response?.data?.message || "Gagal memuat profil pengguna";
+      const errMsg = err?.response?.data?.error?.message || "Gagal memuat profil pengguna";
       set({ error: errMsg, loading: false });
       return null;
     }
@@ -60,13 +43,12 @@ export const useUserStore = create<UserState>((set, get) => ({
   fetchWallet: async () => {
     set({ loading: true, error: null });
     try {
-      // Endpoint backend: GET /wallet/balance
-      const data: any = await api.get("/wallet/balance");
-      const walletData = data?.data || data;
+      const envelope: ApiEnvelope<Wallet> = await api.get("/wallet/balance");
+      const walletData = envelope.data;
       set({ wallet: walletData, loading: false });
       return walletData;
     } catch (err: any) {
-      set({ error: err.response?.data?.message || "Gagal memuat saldo dompet", loading: false });
+      set({ error: err?.response?.data?.error?.message || "Gagal memuat saldo dompet", loading: false });
       return null;
     }
   },
@@ -91,4 +73,10 @@ export const useUserStore = create<UserState>((set, get) => ({
     set({ user: null, wallet: null, error: null });
     try { await authClient.signOut(); } catch { /* ignore */ }
   },
-}));
+    }),
+    {
+      name: "nvide-user-storage",
+      partialize: (state) => ({ user: state.user, wallet: state.wallet }),
+    }
+  )
+);

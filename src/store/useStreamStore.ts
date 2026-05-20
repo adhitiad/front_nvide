@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import api from "@/lib/api";
+import type { ApiEnvelope } from "@/lib/types/api";
 
 export interface User {
   id: string;
@@ -98,41 +99,35 @@ export const useStreamStore = create<StreamState>((set, get) => ({
   fetchStreams: async (category?: string) => {
     set({ loading: true, error: null });
     try {
-      // Endpoint backend: GET /api/v1/streams/live atau GET /api/v1/streams
       const endpoint = category ? `/streams?category=${category}` : "/streams/live";
-      const data: any = await api.get(endpoint);
-      // Backend returns either array directly or wrapped
-      const streamList = Array.isArray(data) ? data : data?.data || [];
-      set({ streams: streamList, loading: false });
+      const envelope: ApiEnvelope<Stream[]> = await api.get(endpoint);
+      set({ streams: envelope.data || [], loading: false });
     } catch (err: any) {
-      set({ error: err.response?.data?.message || "Gagal memuat daftar siaran aktif", loading: false });
+      set({ error: err?.error?.message || "Gagal memuat daftar siaran aktif", loading: false });
     }
   },
 
   fetchStreamByID: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      // Endpoint backend: GET /api/v1/streams/{stream_id}
-      const data: any = await api.get(`/streams/${id}`);
-      const stream = data?.data || data;
-      set({ 
-        currentStream: stream, 
+      const envelope: ApiEnvelope<Stream> = await api.get(`/streams/${id}`);
+      const stream = envelope.data;
+      set({
+        currentStream: stream,
         viewerCount: stream?.viewer_count || 0,
         likes: stream?.like_count || 0,
-        loading: false 
+        loading: false,
       });
     } catch (err: any) {
-      set({ error: err.response?.data?.message || "Gagal memuat detail siaran", loading: false });
+      set({ error: err?.error?.message || "Gagal memuat detail siaran", loading: false });
     }
   },
 
   fetchGiftCatalog: async () => {
     try {
-      // Endpoint backend: GET /api/v1/gifts
-      const data: any = await api.get("/gifts");
-      const giftList = Array.isArray(data) ? data : data?.data || [];
-      set({ gifts: giftList });
-    } catch (err) {
+      const envelope: ApiEnvelope<Gift[]> = await api.get("/gifts");
+      set({ gifts: envelope.data });
+    } catch (err: any) {
       console.error("Gagal memuat katalog hadiah:", err);
     }
   },

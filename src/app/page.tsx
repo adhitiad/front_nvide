@@ -44,7 +44,7 @@ export default function Home() {
     fetchStreams(activeCategory);
   }, [activeCategory]);
 
-  const filteredStreams = streams.filter((stream) => {
+  const filteredStreams = (streams || []).filter((stream) => {
     const text = searchQuery.toLowerCase();
     return (
       stream.title.toLowerCase().includes(text) ||

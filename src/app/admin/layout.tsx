@@ -21,7 +21,11 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (session?.user) {
-      setUser(session.user);
+      setUser({
+        ...session.user,
+        username: session.user.name || "",
+        avatar_url: session.user.image || null,
+      } as any);
       fetchProfile();
       fetchWallet();
     }
@@ -49,7 +53,7 @@ export default function AdminLayout({
   }
 
   // User Banned Guard
-  const isBanned = session.user?.banned === true || session.user?.status === "banned" || user?.banned === true;
+  const isBanned = (session.user as any)?.banned === true || (session.user as any)?.status === "banned" || (user as any)?.banned === true;
   
   if (isBanned) {
     return (

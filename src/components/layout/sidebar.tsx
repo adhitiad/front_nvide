@@ -185,8 +185,8 @@ function SidebarContent() {
         {user && (
           <div className="mx-2 mb-8 p-3 rounded-2xl bg-primary/5 border border-primary/10 flex items-center gap-3">
             <div className="h-10 w-10 rounded-full border border-primary/30 overflow-hidden bg-background">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary font-bold">
                   {user.username.substring(0, 2).toUpperCase()}
