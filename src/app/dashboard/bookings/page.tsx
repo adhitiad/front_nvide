@@ -3,32 +3,39 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "@/lib/auth-client";
-import { 
-  Calendar, 
-  Clock, 
-  Users, 
-  CheckCircle, 
-  XCircle, 
-  Video, 
-  Phone, 
-  MapPin, 
-  Sparkles, 
+import {
+  Calendar,
+  Clock,
+  Users,
+  CheckCircle,
+  XCircle,
+  Video,
+  Phone,
+  MapPin,
+  Sparkles,
   MessageSquare,
   DollarSign,
   AlertTriangle,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BookingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  
+
   // Data States
   const [hosts, setHosts] = useState<any[]>([]);
   const [myBookings, setMyBookings] = useState<any[]>([]);
@@ -38,7 +45,7 @@ export default function BookingsPage() {
   // Form States
   const [selectedHost, setSelectedHost] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<string>(
-    new Date(Date.now() + 86400000).toISOString().split("T")[0] // Tomorrow as default
+    new Date(Date.now() + 86400000).toISOString().split("T")[0], // Tomorrow as default
   );
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -56,8 +63,10 @@ export default function BookingsPage() {
       try {
         setLoading(true);
         // 1. Fetch available hosts (using active streams as host catalog)
-        const streamRes = await api.get("/streams") as any;
-        const streamList = Array.isArray(streamRes) ? streamRes : (streamRes?.data || []);
+        const streamRes = (await api.get("/streams")) as any;
+        const streamList = Array.isArray(streamRes)
+          ? streamRes
+          : streamRes?.data || [];
         const hostMap = new Map();
         streamList.forEach((s: any) => {
           if (s.host) {
@@ -67,13 +76,17 @@ export default function BookingsPage() {
         setHosts(Array.from(hostMap.values()));
 
         // 2. Fetch User requested bookings
-        const userBRes = await api.get("/bookings") as any;
-        setMyBookings(Array.isArray(userBRes) ? userBRes : (userBRes?.data || []));
+        const userBRes = (await api.get("/bookings")) as any;
+        setMyBookings(
+          Array.isArray(userBRes) ? userBRes : userBRes?.data || [],
+        );
 
         // 3. If host, fetch host bookings
         if (session?.user?.role === "host" || session?.user?.role === "admin") {
-          const hostBRes = await api.get("/host/bookings") as any;
-          setHostBookings(Array.isArray(hostBRes) ? hostBRes : (hostBRes?.data || []));
+          const hostBRes = (await api.get("/host/bookings")) as any;
+          setHostBookings(
+            Array.isArray(hostBRes) ? hostBRes : hostBRes?.data || [],
+          );
         }
       } catch (err) {
         console.error("Gagal mengambil data booking", err);
@@ -87,12 +100,14 @@ export default function BookingsPage() {
   // Fetch available slots when host or date changes
   useEffect(() => {
     if (!selectedHost || !selectedDate) return;
-    
+
     async function fetchSlots() {
       try {
         setLoadingSlots(true);
-        const slotsRes = await api.get(`/hosts/${selectedHost.id}/available-slots?date=${selectedDate}`) as any;
-        const slots = Array.isArray(slotsRes) ? slotsRes : (slotsRes?.data || []);
+        const slotsRes = (await api.get(
+          `/hosts/${selectedHost.id}/available-slots?date=${selectedDate}`,
+        )) as any;
+        const slots = Array.isArray(slotsRes) ? slotsRes : slotsRes?.data || [];
         setAvailableSlots(slots);
         if (slots && slots.length > 0) {
           setSelectedSlot(slots[0].start_time || "");
@@ -106,7 +121,7 @@ export default function BookingsPage() {
         setLoadingSlots(false);
       }
     }
-    
+
     fetchSlots();
   }, [selectedHost, selectedDate]);
 
@@ -124,31 +139,32 @@ export default function BookingsPage() {
 
     try {
       const scheduledAt = new Date(`${selectedDate}T${selectedSlot}`);
-      
+
       const payload = {
         host_id: selectedHost.id,
-        booking_type_id: "00000000-0000-0000-0000-000000000000", // Default mock UUID
         scheduled_at: scheduledAt.toISOString(),
-        duration: duration,
-        notes: notes,
-        location_name: locationName || (callType === "video" ? "Virtual Video Call" : "Virtual Voice Call"),
-        latitude: null,
-        longitude: null
+        duration_minutes: duration,
+        user_notes: notes,
       };
 
       await api.post("/bookings", payload);
       toast.success("Permintaan booking berhasil diajukan!");
-      
+
       // Reset form
       setNotes("");
       setLocationName("");
       setSelectedHost(null);
 
       // Refresh list
-      const userBRes2 = await api.get("/bookings") as any;
-      setMyBookings(Array.isArray(userBRes2) ? userBRes2 : (userBRes2?.data || []));
+      const userBRes2 = (await api.get("/bookings")) as any;
+      setMyBookings(
+        Array.isArray(userBRes2) ? userBRes2 : userBRes2?.data || [],
+      );
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Saldo Koin NV tidak cukup untuk melakukan booking!");
+      toast.error(
+        err.response?.data?.message ||
+          "Saldo Koin NV tidak cukup untuk melakukan booking!",
+      );
     }
   };
 
@@ -157,10 +173,12 @@ export default function BookingsPage() {
     try {
       await api.post(`/host/bookings/${id}/accept`, {});
       toast.success("Booking berhasil disetujui!");
-      
+
       // Refresh list
-      const hostBRes2 = await api.get("/host/bookings") as any;
-      setHostBookings(Array.isArray(hostBRes2) ? hostBRes2 : (hostBRes2?.data || []));
+      const hostBRes2 = (await api.get("/host/bookings")) as any;
+      setHostBookings(
+        Array.isArray(hostBRes2) ? hostBRes2 : hostBRes2?.data || [],
+      );
     } catch (err) {
       toast.error("Gagal menyetujui booking");
     }
@@ -179,8 +197,10 @@ export default function BookingsPage() {
       setRejectReason("");
 
       // Refresh list
-      const hostBRes3 = await api.get("/host/bookings") as any;
-      setHostBookings(Array.isArray(hostBRes3) ? hostBRes3 : (hostBRes3?.data || []));
+      const hostBRes3 = (await api.get("/host/bookings")) as any;
+      setHostBookings(
+        Array.isArray(hostBRes3) ? hostBRes3 : hostBRes3?.data || [],
+      );
     } catch (err) {
       toast.error("Gagal menolak booking");
     }
@@ -222,7 +242,8 @@ export default function BookingsPage() {
           Halaman Booking & Jadwal Host
         </h1>
         <p className="text-neutral-400 text-sm max-w-xl">
-          Jadwalkan interaksi video call 1-on-1 privat, atur tarif interaksi premium, dan kelola pemesanan jadwal langsung di satu tempat.
+          Jadwalkan interaksi video call 1-on-1 privat, atur tarif interaksi
+          premium, dan kelola pemesanan jadwal langsung di satu tempat.
         </p>
       </div>
 
@@ -232,7 +253,6 @@ export default function BookingsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
           {/* KIRI: SELECTION & FORM BOOKING */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="bg-neutral-900/60 border-neutral-800 backdrop-blur-md text-white">
@@ -248,9 +268,13 @@ export default function BookingsPage() {
               <CardContent className="space-y-4">
                 {/* Host selector */}
                 <div className="space-y-2">
-                  <Label className="text-neutral-300 font-bold text-xs">Pilih Host</Label>
+                  <Label className="text-neutral-300 font-bold text-xs">
+                    Pilih Host
+                  </Label>
                   {hosts.length === 0 ? (
-                    <p className="text-neutral-500 text-xs italic">Tidak ada host aktif saat ini.</p>
+                    <p className="text-neutral-500 text-xs italic">
+                      Tidak ada host aktif saat ini.
+                    </p>
                   ) : (
                     <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto pr-1">
                       {hosts?.map((host) => (
@@ -267,9 +291,13 @@ export default function BookingsPage() {
                             <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center font-bold text-[10px]">
                               {host.username?.[0]?.toUpperCase() || "H"}
                             </div>
-                            <span className="text-xs font-bold text-neutral-200">{host.username || host.email}</span>
+                            <span className="text-xs font-bold text-neutral-200">
+                              {host.username || host.email}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-indigo-400 font-bold">Pilih</span>
+                          <span className="text-[10px] text-indigo-400 font-bold">
+                            Pilih
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -277,15 +305,30 @@ export default function BookingsPage() {
                 </div>
 
                 {selectedHost && (
-                  <form onSubmit={handleRequestBooking} className="space-y-4 pt-2 border-t border-neutral-800/80">
+                  <form
+                    onSubmit={handleRequestBooking}
+                    className="space-y-4 pt-2 border-t border-neutral-800/80"
+                  >
                     <div className="bg-neutral-950/50 p-3 rounded-xl border border-neutral-800 text-xs space-y-1">
-                      <p className="text-neutral-400">Host Terpilih: <span className="text-white font-bold">{selectedHost.username}</span></p>
-                      <p className="text-neutral-400">Tarif Panggilan: <span className="text-indigo-400 font-bold">100 Koin NV / Menit</span></p>
+                      <p className="text-neutral-400">
+                        Host Terpilih:{" "}
+                        <span className="text-white font-bold">
+                          {selectedHost.username}
+                        </span>
+                      </p>
+                      <p className="text-neutral-400">
+                        Tarif Panggilan:{" "}
+                        <span className="text-indigo-400 font-bold">
+                          100 Koin NV / Menit
+                        </span>
+                      </p>
                     </div>
 
                     {/* Date picker */}
                     <div className="space-y-2">
-                      <Label className="text-neutral-300 text-xs">Tanggal</Label>
+                      <Label className="text-neutral-300 text-xs">
+                        Tanggal
+                      </Label>
                       <Input
                         type="date"
                         value={selectedDate}
@@ -299,11 +342,15 @@ export default function BookingsPage() {
                     <div className="space-y-2">
                       <Label className="text-neutral-300 text-xs flex justify-between">
                         <span>Jam Tersedia</span>
-                        {loadingSlots && <Loader2 className="h-3.5 w-3.5 text-indigo-400 animate-spin" />}
+                        {loadingSlots && (
+                          <Loader2 className="h-3.5 w-3.5 text-indigo-400 animate-spin" />
+                        )}
                       </Label>
                       {availableSlots.length === 0 ? (
                         <p className="text-neutral-500 text-xs italic bg-neutral-950/40 p-3 rounded-xl text-center">
-                          {loadingSlots ? "Memeriksa jadwal..." : "Tidak ada jadwal kosong untuk tanggal ini."}
+                          {loadingSlots
+                            ? "Memeriksa jadwal..."
+                            : "Tidak ada jadwal kosong untuk tanggal ini."}
                         </p>
                       ) : (
                         <div className="grid grid-cols-3 gap-1.5 max-h-24 overflow-y-auto">
@@ -327,7 +374,9 @@ export default function BookingsPage() {
 
                     {/* Duration */}
                     <div className="space-y-2">
-                      <Label className="text-neutral-300 text-xs">Durasi Panggilan (Menit)</Label>
+                      <Label className="text-neutral-300 text-xs">
+                        Durasi Panggilan (Menit)
+                      </Label>
                       <select
                         value={duration}
                         onChange={(e) => setDuration(Number(e.target.value))}
@@ -341,7 +390,9 @@ export default function BookingsPage() {
 
                     {/* Call Type selector */}
                     <div className="space-y-2">
-                      <Label className="text-neutral-300 text-xs">Tipe Panggilan</Label>
+                      <Label className="text-neutral-300 text-xs">
+                        Tipe Panggilan
+                      </Label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -370,7 +421,9 @@ export default function BookingsPage() {
 
                     {/* Notes */}
                     <div className="space-y-2">
-                      <Label className="text-neutral-300 text-xs">Catatan / Kebutuhan</Label>
+                      <Label className="text-neutral-300 text-xs">
+                        Catatan / Kebutuhan
+                      </Label>
                       <Input
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
@@ -394,9 +447,9 @@ export default function BookingsPage() {
 
           {/* KANAN: DAFTAR BOOKING USER & HOST MANAGEMENT */}
           <div className="lg:col-span-2 space-y-6">
-            
             {/* 1. HOST PANEL (IF ROLE HOST) */}
-            {(session?.user?.role === "host" || session?.user?.role === "admin") && (
+            {(session?.user?.role === "host" ||
+              session?.user?.role === "admin") && (
               <Card className="bg-neutral-900/60 border-neutral-800 backdrop-blur-md text-white">
                 <CardHeader>
                   <CardTitle className="text-base font-bold flex items-center gap-2 text-pink-400">
@@ -404,7 +457,8 @@ export default function BookingsPage() {
                     Permintaan Booking Masuk (Sebagai Host)
                   </CardTitle>
                   <CardDescription className="text-neutral-400 text-xs">
-                    Konfirmasi atau tolak jadwal konsultasi interaktif yang diajukan penonton.
+                    Konfirmasi atau tolak jadwal konsultasi interaktif yang
+                    diajukan penonton.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 max-h-[300px] overflow-y-auto">
@@ -414,22 +468,34 @@ export default function BookingsPage() {
                     </div>
                   ) : (
                     hostBookings?.map((b) => (
-                      <div key={b.id} className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs">
+                      <div
+                        key={b.id}
+                        className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs"
+                      >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-[10px] text-neutral-500 font-bold bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded">
                               {b.booking_code}
                             </span>
-                            <span className={`px-2 py-0.5 border text-[9px] font-bold rounded-full ${getStatusColor(b.status)}`}>
+                            <span
+                              className={`px-2 py-0.5 border text-[9px] font-bold rounded-full ${getStatusColor(b.status)}`}
+                            >
                               {b.status.toUpperCase()}
                             </span>
                           </div>
-                          <p className="text-white font-bold">Penonton ID: {b.user_id.slice(0, 8)}</p>
+                          <p className="text-white font-bold">
+                            Penonton ID: {b.user_id.slice(0, 8)}
+                          </p>
                           <p className="text-neutral-400 flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                            {new Date(b.scheduled_at).toLocaleString("id-ID")} ({b.duration_minutes} Menit)
+                            {new Date(b.scheduled_at).toLocaleString("id-ID")} (
+                            {b.duration_minutes} Menit)
                           </p>
-                          {b.user_notes && <p className="text-neutral-500 italic">" {b.user_notes} "</p>}
+                          {b.user_notes && (
+                            <p className="text-neutral-500 italic">
+                              " {b.user_notes} "
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex gap-2 w-full md:w-auto">
@@ -469,7 +535,9 @@ export default function BookingsPage() {
                   {/* Reject dialog mockup inline */}
                   {activeRejectId && (
                     <div className="p-4 bg-red-950/20 border border-red-500/20 rounded-2xl space-y-3">
-                      <Label className="text-xs font-bold text-red-400">Berikan Alasan Penolakan:</Label>
+                      <Label className="text-xs font-bold text-red-400">
+                        Berikan Alasan Penolakan:
+                      </Label>
                       <Input
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
@@ -477,8 +545,24 @@ export default function BookingsPage() {
                         className="bg-neutral-900 border-neutral-800 text-xs text-white"
                       />
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleRejectBooking(activeRejectId)} className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl">Tolak Permanen</Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setActiveRejectId(null); setRejectReason(""); }} className="text-xs text-neutral-400 hover:text-white rounded-xl">Batal</Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleRejectBooking(activeRejectId)}
+                          className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl"
+                        >
+                          Tolak Permanen
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setActiveRejectId(null);
+                            setRejectReason("");
+                          }}
+                          className="text-xs text-neutral-400 hover:text-white rounded-xl"
+                        >
+                          Batal
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -494,30 +578,40 @@ export default function BookingsPage() {
                   Reservasi Jadwal Saya (Sebagai Penonton)
                 </CardTitle>
                 <CardDescription className="text-neutral-400 text-xs">
-                  Pantau janji temu panggilan video 1-on-1 dengan host favorit Anda.
+                  Pantau janji temu panggilan video 1-on-1 dengan host favorit
+                  Anda.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 max-h-[450px] overflow-y-auto">
                 {myBookings.length === 0 ? (
                   <div className="text-center py-12 text-xs text-neutral-500 italic">
-                    Belum ada reservasi jadwal diajukan. Mulai booking di sebelah kiri!
+                    Belum ada reservasi jadwal diajukan. Mulai booking di
+                    sebelah kiri!
                   </div>
                 ) : (
                   myBookings?.map((b: any) => (
-                    <div key={b.id} className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs">
+                    <div
+                      key={b.id}
+                      className="p-4 bg-neutral-950 border border-neutral-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs"
+                    >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-[10px] text-neutral-500 font-bold bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded">
                             {b.booking_code}
                           </span>
-                          <span className={`px-2 py-0.5 border text-[9px] font-bold rounded-full ${getStatusColor(b.status)}`}>
+                          <span
+                            className={`px-2 py-0.5 border text-[9px] font-bold rounded-full ${getStatusColor(b.status)}`}
+                          >
                             {b.status.toUpperCase()}
                           </span>
                         </div>
-                        <p className="text-white font-bold">Host ID: {b.host_id.slice(0, 8)}</p>
+                        <p className="text-white font-bold">
+                          Host ID: {b.host_id.slice(0, 8)}
+                        </p>
                         <p className="text-neutral-400 flex items-center gap-1.5">
                           <Clock className="h-3.5 w-3.5 text-indigo-400" />
-                          {new Date(b.scheduled_at).toLocaleString("id-ID")} ({b.duration_minutes} Menit)
+                          {new Date(b.scheduled_at).toLocaleString("id-ID")} (
+                          {b.duration_minutes} Menit)
                         </p>
                       </div>
 
@@ -528,7 +622,8 @@ export default function BookingsPage() {
                             onClick={() => handleStartCall(b.id)}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex-1 md:flex-none text-xs rounded-xl shadow-lg shadow-indigo-900/35"
                           >
-                            <Video className="h-3.5 w-3.5 mr-1" /> Mulai Panggilan Video
+                            <Video className="h-3.5 w-3.5 mr-1" /> Mulai
+                            Panggilan Video
                           </Button>
                         )}
                         {b.status === "pending" && (
@@ -542,7 +637,6 @@ export default function BookingsPage() {
                 )}
               </CardContent>
             </Card>
-
           </div>
         </div>
       )}
