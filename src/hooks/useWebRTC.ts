@@ -21,12 +21,22 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
       return;
     }
 
-    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    const wsUrl = `${WS_URL}/api/v1/streams/${streamId}/signal?role=${role}`;
+    let isMounted = true;
+    let ws: WebSocket | null = null;
 
-    // Inisialisasi WebSocket Signaling
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    const connect = async () => {
+      try {
+        // Fetch JWT token to authenticate WS connection
+        const { getAccessToken } = await import('@/lib/api');
+        const token = await getAccessToken();
+        if (!isMounted) return;
+
+        const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
+        const wsUrl = `${WS_URL}/api/v1/streams/${streamId}/signal?role=${role}&token=${encodeURIComponent(token)}`;
+
+        // Inisialisasi WebSocket Signaling
+        ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
     const setupPeerConnection = async () => {
       if (pcRef.current) {
@@ -70,7 +80,7 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
 
       // Handle ICE Candidates
       pc.onicecandidate = (event) => {
-        if (event.candidate && ws.readyState === WebSocket.OPEN) {
+        if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
           console.log(`[WebRTC] Sending ICE candidate to server:`, event.candidate.candidate);
           ws.send(JSON.stringify({
             type: 'ice_candidate',
@@ -112,7 +122,7 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         console.log("[WebRTC] Local offer created & set. Sending to server...");
-        ws.send(JSON.stringify({
+        ws?.send(JSON.stringify({
           type: 'offer',
           data: offer
         }));
@@ -165,13 +175,22 @@ export function useWebRTC({ streamId, role, onTrack, localStream }: UseWebRTCOpt
         console.error("[WebRTC] Failed to process signaling message:", err);
       }
     };
+      } catch (err) {
+        console.error("[WebRTC] Failed to fetch token for WS", err);
+      }
+    };
+
+    connect();
 
     return () => {
+      isMounted = false;
       if (pcRef.current) {
         console.log("[WebRTC] Cleaning up hook. Closing PeerConnection...");
         pcRef.current.close();
       }
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
     };
   }, [streamId, role, localStream]);
 

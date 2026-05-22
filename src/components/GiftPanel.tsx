@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import api from "@/lib/api";
+import { useEffect } from "react";
+import { useGifts } from "@/hooks/useGifts";
+import { useWallet } from "@/hooks/useWallet";
 import { 
   Dialog, 
   DialogContent, 
@@ -12,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Gift, Wallet, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 
 interface GiftPanelProps {
   receiverId: string;
@@ -21,64 +23,40 @@ interface GiftPanelProps {
 }
 
 export function GiftPanel({ receiverId, roomId, conversationId, trigger }: GiftPanelProps) {
-  const [gifts, setGifts] = useState<any[]>([]);
-  const [balance, setBalance] = useState<number>(0);
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const gifts = useGifts();
+  const wallet = useWallet();
 
+  // Load gifts and balance when dialog opens
   useEffect(() => {
     if (open) {
-      fetchGifts();
-      fetchBalance();
+      gifts.fetchGiftCatalog();
+      wallet.fetchBalance();
     }
-  }, [open]);
-
-  const fetchGifts = async () => {
-    try {
-      setLoading(true);
-      const data = await api.get("/gifts") as any;
-      setGifts(data || []);
-    } catch (err) {
-      console.error("Gagal memuat gift", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchBalance = async () => {
-    try {
-      const data = await api.get("/wallet/balance") as any;
-      setBalance(data.balance || 0);
-    } catch (err) {}
-  };
+  }, [open, gifts, wallet]);
 
   const handleSendGift = async (gift: any) => {
-    if (balance < gift.price) {
+    if (!wallet.wallet) {
+      toast.error("Gagal memuat saldo wallet");
+      return;
+    }
+
+    if (wallet.wallet.balance < gift.price) {
       toast.error("Saldo tidak mencukupi!");
       return;
     }
 
     try {
-      setSending(gift.id);
-      const payload = {
-        receiver_id: receiverId,
-        gift_id: gift.id,
-        quantity: 1,
-        room_id: roomId,
-        conversation_id: conversationId
-      };
-
-      await api.post("/gifts/send", payload);
-      toast.success(`${gift.name} berhasil dikirim!`);
-      fetchBalance(); // Update saldo setelah kirim
+      const options = roomId ? { roomId } : conversationId ? { conversationId } : undefined;
+      await gifts.sendGift(receiverId, gift.id, 1, options);
       
-      // Jika di chat private, kita bisa menutup dialog
+      // Refresh wallet balance after sending gift
+      await wallet.fetchBalance();
+      
+      // Close dialog if in private chat
       if (conversationId) setOpen(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Gagal mengirim gift");
-    } finally {
-      setSending(null);
+      console.error("Failed to send gift:", err);
     }
   };
 
@@ -98,27 +76,27 @@ export function GiftPanel({ receiverId, roomId, conversationId, trigger }: GiftP
               <Gift className="text-amber-400 h-5 w-5" /> Kirim Gift
             </span>
             <span className="text-xs bg-neutral-800 px-3 py-1 rounded-full flex items-center gap-1.5 font-normal">
-              <Wallet className="h-3 w-3 text-emerald-400" /> Rp {balance.toLocaleString()}
+              <Wallet className="h-3 w-3 text-emerald-400" /> Rp {(wallet.wallet?.balance || 0).toLocaleString()}
             </span>
           </DialogTitle>
         </DialogHeader>
 
-        {loading ? (
+        {gifts.loading ? (
           <div className="h-48 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-3 mt-4">
-            {gifts.length === 0 ? (
+            {gifts.gifts.length === 0 ? (
               <div className="col-span-3 text-center py-10 text-neutral-500 text-sm">
                 Belum ada gift tersedia.
               </div>
             ) : (
-              gifts.map((gift) => (
+              gifts.gifts.map((gift) => (
                 <button
                   key={gift.id}
                   onClick={() => handleSendGift(gift)}
-                  disabled={!!sending}
+                  disabled={gifts.sending === gift.id}
                   className="flex flex-col items-center p-3 rounded-xl bg-neutral-950 border border-neutral-800 hover:border-indigo-500/50 hover:bg-indigo-950/20 transition-all group relative overflow-hidden"
                 >
                   <div className="h-14 w-14 mb-2 flex items-center justify-center bg-neutral-900 rounded-lg group-hover:scale-110 transition-transform">
@@ -131,7 +109,7 @@ export function GiftPanel({ receiverId, roomId, conversationId, trigger }: GiftP
                   <span className="text-xs font-bold truncate w-full text-center">{gift.name}</span>
                   <span className="text-[10px] text-amber-500 font-mono mt-0.5">Rp {gift.price}</span>
                   
-                  {sending === gift.id && (
+                  {gifts.sending === gift.id && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                       <Loader2 className="h-5 w-5 animate-spin text-white" />
                     </div>

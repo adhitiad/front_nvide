@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useWallet } from "@/hooks/useWallet";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,15 +34,12 @@ const PACKAGES = [
 ];
 
 export default function WalletPage() {
-  const [wallet, setWallet] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const walletHook = useWallet();
   const [userProfile, setUserProfile] = useState<any>(null);
 
   // Modal State Top Up
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [topUpMethod, setTopUpMethod] = useState("duitku"); // 'duitku' atau 'crypto'
   const [selectedCryptoChain, setSelectedCryptoChain] = useState("solana");
   const [cryptoAddress, setCryptoAddress] = useState<string>("");
@@ -54,59 +52,35 @@ export default function WalletPage() {
   const [withdrawMethod, setWithdrawMethod] = useState("bank_bca");
   const [withdrawAccount, setWithdrawAccount] = useState("");
   const [withdrawChain, setWithdrawChain] = useState("solana");
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState("");
 
-  const fetchProfileAndWallet = async () => {
+  const fetchProfile = async () => {
     try {
-      setLoading(true);
-      // Ambil data profil untuk detail email/nama donasi
       const profileData = await api.get("/auth/me") as any;
       setUserProfile(profileData.user || profileData);
-
-      // Ambil balance dari backend
-      const walletData = await api.get("/wallet/balance") as any;
-      setWallet(walletData);
-
-      // Ambil transaksi dari backend
-      const txData = await api.get("/wallet/transactions") as any;
-      setTransactions(Array.isArray(txData) ? txData : []);
     } catch (err) {
-      console.error("Gagal memuat data wallet dari API backend:", err);
-      // Fallback data simulasi premium agar UI tetap terlihat hidup jika backend database belum di-seed
-      setWallet({
-        balance: 1545000, // stored in IDR
-        frozen_balance: 0,
-        currency: "IDR"
-      });
-      setTransactions([
-        { id: "tx-1", type: "deposit", amount: 500000, currency: "IDR", status: "success", reference_id: "REF-DUITKU-928", payment_method: "Duitku", created_at: new Date().toISOString() },
-        { id: "tx-2", type: "gift_sent", amount: -20000, currency: "IDR", status: "success", reference_id: "REF-GIFT-819", created_at: new Date(Date.now() - 86400000).toISOString() },
-        { id: "tx-3", type: "gift_received", amount: 150000, currency: "IDR", status: "success", reference_id: "REF-GIFT-702", created_at: new Date(Date.now() - 172800000).toISOString() },
-        { id: "tx-4", type: "withdrawal", amount: -200000, currency: "IDR", status: "success", reference_id: "REF-WITHDRAW-281", created_at: new Date(Date.now() - 345600000).toISOString() },
-      ]);
-    } finally {
-      setLoading(false);
+      console.error("Failed to fetch profile:", err);
     }
   };
 
   useEffect(() => {
-    fetchProfileAndWallet();
+    fetchProfile();
+    walletHook.fetchBalance();
+    walletHook.fetchTransactions();
   }, []);
 
-  // Fetch alamat deposit koin crypto dari backend
-  const fetchCryptoDepositAddress = async (chainName: string) => {
+const fetchCryptoDepositAddress = async (chainName: string) => {
     setLoadingAddress(true);
     try {
-      const res = await api.get(`/crypto/deposit-address?chain=${chainName}`) as any;
-      if (res && res.address) {
-        setCryptoAddress(res.address);
+      const address = await walletHook.getCryptoDepositAddress(chainName);
+      if (address) {
+        setCryptoAddress(address);
       } else {
-        setCryptoAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F"); // Fallback
+        setCryptoAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F");
       }
     } catch (err) {
-      console.error("Gagal mendapatkan crypto deposit address dari backend:", err);
-      setCryptoAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F"); // Fallback
+      console.error("Failed to get crypto deposit address:", err);
+      setCryptoAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F");
     } finally {
       setLoadingAddress(false);
     }
@@ -127,38 +101,17 @@ export default function WalletPage() {
 
   const handleProcessTopUp = async () => {
     if (!selectedPackage) return;
-    setIsProcessing(true);
     try {
-      // Mengirimkan request deposit ke backend
-      const res = await api.post("/payment/deposit", {
-        amount: selectedPackage.price, // Harga paket dalam Rupiah
+      await walletHook.requestDeposit({
+        amount: selectedPackage.price,
         payment_method: "duitku",
-        email: userProfile?.email || "viewer@nvide.live",
-        customer_name: userProfile?.username || "Pengguna NVide",
-      }) as any;
-
-      if (res && res.payment_url) {
-        window.open(res.payment_url, "_blank");
-        toast.success("Membuka halaman pembayaran Duitku...");
-      } else {
-        toast.success("Deposit koin simulasi berhasil diproses!");
-        // Update balance simulasi lokal jika payment_url mock
-        if (wallet) {
-          setWallet((prev: any) => ({
-            ...prev,
-            balance: prev.balance + (selectedPackage.coins * 100), // stored in IDR
-          }));
-        }
-      }
-
+        email: userProfile?.email || "user@nvide.live",
+        customer_name: userProfile?.username || "NVide User",
+      });
       setIsTopUpOpen(false);
       setSelectedPackage(null);
-      fetchProfileAndWallet();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.message || "Gagal memproses deposit. Coba lagi.");
-    } finally {
-      setIsProcessing(false);
+    } catch (err) {
+      console.error("Failed to process deposit:", err);
     }
   };
 
@@ -171,21 +124,18 @@ export default function WalletPage() {
       return;
     }
 
-    const withdrawAmountIDR = amountNum * 100; // Asumsi 1 koin = 100 Rupiah
-    if (withdrawAmountIDR > (wallet?.balance || 0)) {
+    const withdrawAmountIDR = amountNum * 100; // 1 coin = 100 IDR
+    if (withdrawAmountIDR > (walletHook.wallet?.balance || 0)) {
       setWithdrawError("Saldo koin Anda tidak mencukupi");
       return;
     }
 
-    setIsWithdrawing(true);
     setWithdrawError("");
 
     try {
       if (withdrawMethod === "crypto_usdt") {
-        // Panggil endpoint withdrawal crypto di backend
-        // Chain: solana, Asset: USDT, Address: target, Amount: USDT equivalent (e.g. coins / 150)
-        const usdtEquivalent = amountNum / 150; // Asumsi 1 USDT = Rp 15.000 (150 koin)
-        await api.post("/crypto/withdrawal", {
+        const usdtEquivalent = amountNum / 150;
+        await walletHook.requestCryptoWithdrawal({
           chain: withdrawChain,
           asset: "USDT",
           address: withdrawAccount,
@@ -193,8 +143,7 @@ export default function WalletPage() {
         });
         toast.success("Penarikan koin crypto berhasil diajukan!");
       } else {
-        // Panggil endpoint withdrawal fiat/Duitku
-        await api.post("/payment/withdraw", {
+        await walletHook.requestWithdrawal({
           amount: withdrawAmountIDR,
         });
         toast.success("Penarikan saldo bank berhasil diajukan!");
@@ -203,28 +152,11 @@ export default function WalletPage() {
       setIsWithdrawOpen(false);
       setWithdrawAmount("");
       setWithdrawAccount("");
-      fetchProfileAndWallet();
     } catch (err: any) {
-      console.error("Gagal melakukan withdrawal:", err);
-      // Fallback simulasi jika endpoint belum diaktifkan penuh di DB shadow
-      toast.success("Simulasi penarikan saldo berhasil diajukan!");
-      if (wallet) {
-        setWallet((prev: any) => ({
-          ...prev,
-          balance: prev.balance - withdrawAmountIDR
-        }));
-      }
-      setIsWithdrawOpen(false);
-      setWithdrawAmount("");
-      setWithdrawAccount("");
-    } finally {
-      setIsWithdrawing(false);
+      console.error("Withdrawal failed:", err);
+      setWithdrawError(err.message || "Gagal melakukan withdrawal");
     }
   };
-
-  // 1 Koin = Rp 100
-  const coinBalance = wallet ? Math.floor(wallet.balance / 100) : 0;
-  const idrEquivalent = wallet ? wallet.balance : 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -235,7 +167,7 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {loading ? (
+      {walletHook.loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-neutral-400 space-y-4">
           <Loader2 className="h-12 w-12 animate-spin text-emerald-400" />
           <p className="text-sm">Menghubungkan ke secure wallet server...</p>
@@ -253,13 +185,13 @@ export default function WalletPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="text-6xl font-black font-mono tracking-tight flex items-baseline gap-2 text-white">
-                  {coinBalance.toLocaleString()} <span className="text-lg text-emerald-400 font-sans font-medium uppercase">Koin NV</span>
+                  {walletHook.coinBalance.toLocaleString()} <span className="text-lg text-emerald-400 font-sans font-medium uppercase">Koin NV</span>
                 </div>
                 <div className="text-emerald-300/70 font-medium flex items-center gap-2">
-                  <span>≈ Rp {idrEquivalent.toLocaleString("id-ID")} IDR</span>
-                  {wallet?.frozen_balance > 0 && (
+                  <span>≈ Rp {walletHook.idrBalance.toLocaleString("id-ID")} IDR</span>
+                  {walletHook.wallet?.frozen_balance && walletHook.wallet.frozen_balance > 0 && (
                     <span className="text-xs text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-900/30">
-                      Membeku: Rp {wallet.frozen_balance.toLocaleString("id-ID")}
+                      Membeku: Rp {walletHook.wallet.frozen_balance.toLocaleString("id-ID")}
                     </span>
                   )}
                 </div>
@@ -325,11 +257,11 @@ export default function WalletPage() {
                         ))}
                         <DialogFooter className="mt-4">
                           <Button 
-                            disabled={!selectedPackage || isProcessing} 
+                            disabled={!selectedPackage || walletHook.loading} 
                             onClick={handleProcessTopUp}
                             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6 text-base"
                           >
-                            {isProcessing ? (
+                            {walletHook.loading ? (
                               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Memproses Checkout...</>
                             ) : "Lanjutkan Pembayaran Instan"}
                           </Button>
@@ -482,7 +414,7 @@ export default function WalletPage() {
                             id="amount" 
                             type="number"
                             min="100"
-                            max={coinBalance}
+                            max={walletHook.coinBalance}
                             value={withdrawAmount}
                             onChange={(e) => setWithdrawAmount(e.target.value)}
                             placeholder="Minimal 100 Koin"
@@ -490,7 +422,7 @@ export default function WalletPage() {
                             className="bg-neutral-950 border-neutral-800 text-neutral-100 focus:border-emerald-500"
                           />
                           <div className="flex justify-between items-center text-xs text-neutral-500 mt-1">
-                            <span>Sisa Saldo Koin Anda: {coinBalance.toLocaleString()} NV</span>
+                            <span>Sisa Saldo Koin Anda: {walletHook.coinBalance.toLocaleString()} NV</span>
                             <span className="text-emerald-400">Setara: Rp {(parseInt(withdrawAmount || "0") * 100).toLocaleString("id-ID")}</span>
                           </div>
                         </div>
@@ -498,10 +430,10 @@ export default function WalletPage() {
                       <DialogFooter>
                         <Button 
                           type="submit"
-                          disabled={isWithdrawing || !withdrawAmount || !withdrawAccount} 
+                          disabled={walletHook.loading || !withdrawAmount || !withdrawAccount} 
                           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6"
                         >
-                          {isWithdrawing ? (
+                          {walletHook.loading ? (
                             <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Memproses Penarikan...</>
                           ) : "Ajukan Penarikan Dana"}
                         </Button>
@@ -569,9 +501,9 @@ export default function WalletPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.length > 0 ? (
-                      transactions.map((tx) => {
-                        const dateFormatted = new Date(tx.created_at || tx.date).toLocaleString("id-ID", {
+                    {walletHook.transactions.length > 0 ? (
+                      walletHook.transactions.map((tx) => {
+                        const dateFormatted = new Date(tx.created_at || (tx as any).date).toLocaleString("id-ID", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
@@ -585,7 +517,7 @@ export default function WalletPage() {
                             <TableCell className="font-medium text-neutral-300 px-6 py-4">{dateFormatted}</TableCell>
                             <TableCell className="px-6 py-4">
                               <div className="flex flex-col">
-                                <span className="font-semibold text-white">{tx.payment_method || tx.desc || (tx.type === "gift_sent" ? "Kirim Gift" : tx.type === "gift_received" ? "Terima Gift" : "Sistem")}</span>
+                                <span className="font-semibold text-white">{tx.payment_method || (tx.type === "gift_sent" ? "Kirim Gift" : tx.type === "gift_received" ? "Terima Gift" : "Sistem")}</span>
                                 <span className="text-xs font-mono text-neutral-500 mt-0.5">{tx.reference_id || tx.id}</span>
                               </div>
                             </TableCell>
@@ -599,8 +531,8 @@ export default function WalletPage() {
                               </span>
                             </TableCell>
                             <TableCell className="px-6 py-4">
-                              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                                tx.status === "success" || tx.status === "completed"
+<span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                tx.status === "success"
                                   ? "bg-emerald-950/30 text-emerald-400 border border-emerald-900/30"
                                   : tx.status === "pending"
                                   ? "bg-amber-950/30 text-amber-400 border border-amber-900/30"

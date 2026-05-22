@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { useOnlineHosts } from "@/hooks/usePKDashboard";
 
 // 🏆 Tipe data PK Battle untuk type-safety
 interface PKBattle {
@@ -80,35 +81,9 @@ export default function PKBattleDashboardPage() {
   const [pkHistory, setPKHistory] = useState<PKBattle[]>([]);
 
   // Simulation states
-  const [incomingInvite, setIncomingInvite] = useState<PKBattle | null>(null);
-
-  // Mock list of online hosts to invite
-  const MOCK_ONLINE_HOSTS: HostProfile[] = [
-    {
-      id: "host-b1",
-      username: "diana_live",
-      level: 42,
-      avatarUrl:
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-      streamTitle: "Lagu Santai Malam Hari ✨",
-    },
-    {
-      id: "host-b2",
-      username: "alex_gaming",
-      level: 35,
-      avatarUrl:
-        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-      streamTitle: "Push Rank Conqueror Solo! 🎮",
-    },
-    {
-      id: "host-b3",
-      username: "putri_talkshow",
-      level: 50,
-      avatarUrl:
-        "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150",
-      streamTitle: "Obrolan Seru & QnA Berhadiah 💖",
-    },
-  ];
+  // Real API hooks
+  const { data: onlineHostsData } = useOnlineHosts();
+  const onlineHosts = onlineHostsData || [];
 
   // Load initial data
   useEffect(() => {
@@ -233,7 +208,7 @@ export default function PKBattleDashboardPage() {
     }
 
     setLoading(true);
-    const opponent = MOCK_ONLINE_HOSTS.find((h) => h.id === selectedOpponent);
+    const opponent = onlineHosts.find((h) => h.id === selectedOpponent);
 
     try {
       if (sandboxMode) {
@@ -320,35 +295,14 @@ export default function PKBattleDashboardPage() {
   // 2. Accept PK Battle Invitation
   const handleAcceptInvite = async (pkId: string) => {
     try {
-      if (sandboxMode) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setActivePK({
-          id: pkId,
-          battleCode: "PK-ACCEPTED-SIM",
-          hostAId: "me-id",
-          hostBId: "putri_talkshow",
-          scoreA: 0,
-          scoreB: 0,
-          winnerId: null,
-          status: "active",
-          durationSeconds: 300,
-          timeLeftSeconds: 300,
-        });
-        setIncomingInvite(null);
-        toast.success(
-          "[Sandbox] Anda menerima tantangan PK! Pertandingan dimulai!",
-        );
+      const response = await api
+        .post(`/pk/battle/${pkId}/accept`)
+        .catch(() => null);
+      if (response) {
+        toast.success("PK Battle berhasil diterima!");
+        fetchPKStatus(pkId);
       } else {
-        const response = await api
-          .post(`/pk/battle/${pkId}/accept`)
-          .catch(() => null);
-        if (response) {
-          toast.success("PK Battle berhasil diterima!");
-          setIncomingInvite(null);
-          fetchPKStatus(pkId);
-        } else {
-          toast.error("Gagal terhubung ke backend.");
-        }
+        toast.error("Gagal terhubung ke backend.");
       }
     } catch (e) {
       toast.error("Kesalahan jaringan.");
@@ -358,14 +312,8 @@ export default function PKBattleDashboardPage() {
   // 3. Reject PK Battle Invitation
   const handleRejectInvite = async (pkId: string) => {
     try {
-      if (sandboxMode) {
-        setIncomingInvite(null);
-        toast.info("[Sandbox] Undangan PK ditolak.");
-      } else {
-        await api.post(`/pk/battle/${pkId}/reject`);
-        setIncomingInvite(null);
-        toast.info("Undangan PK ditolak via API.");
-      }
+      await api.post(`/pk/battle/${pkId}/reject`);
+      toast.info("Undangan PK ditolak via API.");
     } catch (e) {
       toast.error("Gagal menolak undangan.");
     }
@@ -396,48 +344,6 @@ export default function PKBattleDashboardPage() {
     } catch (e) {
       toast.error("Gagal memperbarui status dari server.");
     }
-  };
-
-  // --- SIMULATION WIDGETS ---
-  const simulateGift = (side: "a" | "b", amount: number) => {
-    if (!activePK || activePK.status !== "active") {
-      toast.warning("Simulasi gift hanya bisa dilakukan saat PK aktif!");
-      return;
-    }
-
-    setActivePK((prev) => {
-      if (!prev) return null;
-      const nextA = side === "a" ? prev.scoreA + amount : prev.scoreA;
-      const nextB = side === "b" ? prev.scoreB + amount : prev.scoreB;
-
-      toast.success(
-        `[Simulasi] Kirim koin ke Host ${side.toUpperCase()} senilai +${amount.toLocaleString()} Pts!`,
-      );
-
-      return {
-        ...prev,
-        scoreA: nextA,
-        scoreB: nextB,
-      };
-    });
-  };
-
-  const triggerIncomingInvite = () => {
-    setIncomingInvite({
-      id: "pk-invite-" + Math.random().toString(36).substring(4),
-      battleCode: "PK-INV-INCOMING",
-      hostAId: "putri_talkshow",
-      hostBId: "me-id",
-      scoreA: 0,
-      scoreB: 0,
-      winnerId: null,
-      status: "invited",
-      durationSeconds: 300,
-      timeLeftSeconds: 300,
-    });
-    toast.info(
-      "Anda menerima undangan PK masuk dari putri_talkshow! Cek daftar di bawah.",
-    );
   };
 
   // Kalkulasi persentase score bar
@@ -473,63 +379,7 @@ export default function PKBattleDashboardPage() {
             menangkan pertandingan live streaming.
           </p>
         </div>
-
-        {/* CONTROLS */}
-        <div className="flex items-center gap-2 bg-neutral-900/60 border border-neutral-850 p-1.5 rounded-2xl">
-          <Terminal className="text-indigo-400 h-4 w-4 ml-2.5 animate-pulse" />
-          <Button
-            onClick={() => setSandboxMode(!sandboxMode)}
-            variant="outline"
-            size="sm"
-            className={`text-xs rounded-xl h-8 px-4 cursor-pointer transition-all ${
-              sandboxMode
-                ? "bg-indigo-950/50 border-indigo-500/30 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.1)]"
-                : "border-neutral-800 text-neutral-400"
-            }`}
-          >
-            {sandboxMode ? "Mode Simulator (Offline)" : "Mode Server (API)"}
-          </Button>
-        </div>
       </div>
-
-      {/* MATCH STATUS WIDGET (INVITATION INCOMING MOCK CARD) */}
-      {incomingInvite && (
-        <div className="bg-gradient-to-r from-neutral-950 via-rose-950/20 to-neutral-950 border border-rose-900/30 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg animate-bounce">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="h-10 w-10 rounded-full bg-rose-600 flex items-center justify-center font-bold text-white shadow-[0_0_10px_rgba(244,63,94,0.3)]">
-                PT
-              </div>
-              <Flame className="absolute -top-1.5 -right-1.5 text-yellow-500 h-4 w-4 fill-yellow-500" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white">Undangan PK Masuk!</p>
-              <p className="text-[10px] text-neutral-400">
-                Host{" "}
-                <span className="text-rose-400 font-bold">putri_talkshow</span>{" "}
-                mengajak Anda PK Battle (Durasi: 5 Menit)!
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => handleAcceptInvite(incomingInvite.id)}
-              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs px-4 h-8 cursor-pointer font-bold flex items-center gap-1.5"
-            >
-              <CheckCircle className="h-3.5 w-3.5" /> Terima Tantangan
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleRejectInvite(incomingInvite.id)}
-              className="border-neutral-800 hover:bg-neutral-900 text-neutral-300 rounded-xl text-xs px-4 h-8 cursor-pointer"
-            >
-              Tolak
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* ⚔️ LIVE BATTLE GROUND GRAPHIC ⚔️ */}
       {activePK && (
@@ -751,7 +601,7 @@ export default function PKBattleDashboardPage() {
                     required
                   >
                     <option value="">-- Pilih Host Aktif --</option>
-                    {MOCK_ONLINE_HOSTS.map((h) => (
+                    {onlineHosts.map((h) => (
                       <option key={h.id} value={h.id}>
                         {h.username} (Lvl {h.level}) -{" "}
                         {h.streamTitle.slice(0, 20)}...
@@ -810,111 +660,6 @@ export default function PKBattleDashboardPage() {
                 </Button>
               </CardFooter>
             </form>
-          </Card>
-        </div>
-
-        {/* 2. SIMULATOR Gifting PANEL (OFFLINE SANDBOX MODE) */}
-        <div className="lg:col-span-1">
-          <Card className="bg-neutral-950 border border-neutral-900 rounded-2xl relative overflow-hidden shadow-xl">
-            <CardHeader className="pb-3 border-b border-neutral-900">
-              <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
-                <Gift className="text-indigo-400 h-4.5 w-4.5" /> Simulator
-                Hadiah (Sandbox)
-              </CardTitle>
-              <CardDescription className="text-[10px] text-neutral-400 font-light mt-0.5">
-                Gunakan widget simulator ini untuk menguji grafik poin/skor
-                secara real-time.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-4">
-              {/* GIFT SIMULATOR TO HOST A */}
-              <div className="space-y-2 border border-neutral-900 p-3 rounded-xl bg-neutral-950">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-rose-400 font-mono font-bold">
-                    HADIAH UNTUK ANDA
-                  </span>
-                  <span className="text-[9px] bg-rose-950/40 border border-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full font-mono">
-                    Team Red
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    onClick={() => simulateGift("a", 500)}
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 rounded-lg cursor-pointer border-neutral-850 hover:bg-rose-950/20 hover:text-rose-300"
-                  >
-                    +500 koin
-                  </Button>
-                  <Button
-                    onClick={() => simulateGift("a", 2500)}
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 rounded-lg cursor-pointer border-neutral-850 hover:bg-rose-950/20 hover:text-rose-300"
-                  >
-                    +2.5K koin
-                  </Button>
-                  <Button
-                    onClick={() => simulateGift("a", 10000)}
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 rounded-lg cursor-pointer border-neutral-850 hover:bg-rose-950/20 hover:text-rose-300"
-                  >
-                    +10K koin
-                  </Button>
-                </div>
-              </div>
-
-              {/* GIFT SIMULATOR TO HOST B */}
-              <div className="space-y-2 border border-neutral-900 p-3 rounded-xl bg-neutral-950">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-cyan-400 font-mono font-bold">
-                    HADIAH UNTUK LAWAN
-                  </span>
-                  <span className="text-[9px] bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full font-mono">
-                    Team Blue
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    onClick={() => simulateGift("b", 500)}
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 rounded-lg cursor-pointer border-neutral-850 hover:bg-cyan-950/20 hover:text-cyan-300"
-                  >
-                    +500 koin
-                  </Button>
-                  <Button
-                    onClick={() => simulateGift("b", 2500)}
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 rounded-lg cursor-pointer border-neutral-850 hover:bg-cyan-950/20 hover:text-cyan-300"
-                  >
-                    +2.5K koin
-                  </Button>
-                  <Button
-                    onClick={() => simulateGift("b", 10000)}
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 rounded-lg cursor-pointer border-neutral-850 hover:bg-cyan-950/20 hover:text-cyan-300"
-                  >
-                    +10K koin
-                  </Button>
-                </div>
-              </div>
-
-              {/* EXTRA SIMULATOR TRIGGERS */}
-              <div className="pt-2">
-                <Button
-                  onClick={triggerIncomingInvite}
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-neutral-850 text-indigo-400 hover:bg-indigo-950/20 hover:text-indigo-300 rounded-xl text-xs h-9 cursor-pointer"
-                >
-                  ⚡ Kirim Undangan Masuk Tiruan
-                </Button>
-              </div>
-            </CardContent>
           </Card>
         </div>
 

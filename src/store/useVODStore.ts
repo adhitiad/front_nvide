@@ -47,95 +47,9 @@ export const useVODStore = create<VODState>((set, get) => ({
     try {
       const res: any = await api.get(`/vod?filter=${filter}`);
       const data = Array.isArray(res) ? res : res?.data || [];
-      
-      if (data.length === 0) {
-        // Fallback dummy VOD list
-        const dummy: VODMedia[] = [
-          {
-            id: "vod-1",
-            hostId: "host-1",
-            title: "Siaran Rekaman: Private VIP Dance Show 💋",
-            description: "Show tari tiang sensual eksklusif VIP yang tidak disensor.",
-            thumbnailUrl: "https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=600",
-            videoUrl: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-            isPremium: true,
-            priceIDR: 4500,
-            duration: 1200,
-            views: 4520,
-            createdAt: "2026-05-18",
-            host: { username: "Angel_Secret" },
-          },
-          {
-            id: "vod-2",
-            hostId: "host-2",
-            title: "Review Lovense Lush 3 Integration Setup",
-            description: "Panduan lengkap bagaimana saya memasang mainan pintar dengan live chat.",
-            thumbnailUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600",
-            videoUrl: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-            isPremium: false,
-            priceIDR: 0,
-            duration: 480,
-            views: 8900,
-            createdAt: "2026-05-17",
-            host: { username: "Clara_Live" },
-          },
-          {
-            id: "vod-3",
-            hostId: "host-3",
-            title: "Exclusive ASMR: Binaural Ear Licking 🎧",
-            description: "ASMR kualitas 3D stereo terdalam untuk menenangkan tidur Anda.",
-            thumbnailUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=600",
-            videoUrl: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-            isPremium: true,
-            priceIDR: 2500,
-            duration: 1800,
-            views: 2100,
-            createdAt: "2026-05-16",
-            host: { username: "Sasha_Warm" },
-          }
-        ];
-        
-        // Filter lokal
-        const filtered = filter === "all" ? dummy : dummy.filter((v) => filter === "premium" ? v.isPremium : !v.isPremium);
-        set({ vodList: filtered, loading: false });
-        return;
-      }
-
       set({ vodList: data, loading: false });
     } catch {
-      // Fallback lokal jika API server gagal terhubung
-      const dummy: VODMedia[] = [
-        {
-          id: "vod-1",
-          hostId: "host-1",
-          title: "Siaran Rekaman: Private VIP Dance Show 💋",
-          description: "Show tari tiang sensual eksklusif VIP yang tidak disensor.",
-          thumbnailUrl: "https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=600",
-          videoUrl: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-          isPremium: true,
-          priceIDR: 4500,
-          duration: 1200,
-          views: 4520,
-          createdAt: "2026-05-18",
-          host: { username: "Angel_Secret" },
-        },
-        {
-          id: "vod-2",
-          hostId: "host-2",
-          title: "Review Lovense Lush 3 Integration Setup",
-          description: "Panduan lengkap bagaimana saya memasang mainan pintar dengan live chat.",
-          thumbnailUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600",
-          videoUrl: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-          isPremium: false,
-          priceIDR: 0,
-          duration: 480,
-          views: 8900,
-          createdAt: "2026-05-17",
-          host: { username: "Clara_Live" },
-        }
-      ];
-      const filtered = filter === "all" ? dummy : dummy.filter((v) => filter === "premium" ? v.isPremium : !v.isPremium);
-      set({ vodList: filtered, loading: false });
+      set({ vodList: [], loading: false, error: "Failed to fetch VOD list" });
     }
   },
 
@@ -146,22 +60,7 @@ export const useVODStore = create<VODState>((set, get) => ({
       const data = res?.data || res;
       set({ currentVOD: data, loading: false });
     } catch {
-      // Fallback detail
-      const dummy: VODMedia = {
-        id,
-        hostId: "host-1",
-        title: "Siaran Rekaman: Private VIP Dance Show 💋",
-        description: "Show tari tiang sensual eksklusif VIP yang tidak disensor. Nikmati visual premium beresolusi tinggi dengan lisensi enkripsi DRM standar industri.",
-        thumbnailUrl: "https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=600",
-        videoUrl: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-        isPremium: true,
-        priceIDR: 4500,
-        duration: 1200,
-        views: 4520,
-        createdAt: "2026-05-18",
-        host: { username: "Angel_Secret" },
-      };
-      set({ currentVOD: dummy, loading: false });
+      set({ currentVOD: null, loading: false, error: "Failed to fetch VOD" });
     }
   },
 

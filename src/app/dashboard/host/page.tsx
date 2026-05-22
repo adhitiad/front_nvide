@@ -38,51 +38,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { 
+  useHostStats, 
+  useHostRevenue, 
+  useHostClips, 
+  useHostHistory, 
+  useHostRequests 
+} from "@/hooks/useHostDashboard";
 
-// Mock streaming data
-const MOCK_REVENUE_CHART = {
-  daily: [
-    { name: "00:00", amount: 150000 },
-    { name: "04:00", amount: 80000 },
-    { name: "08:00", amount: 240000 },
-    { name: "12:00", amount: 450000 },
-    { name: "16:00", amount: 620000 },
-    { name: "20:00", amount: 890000 },
-    { name: "24:00", amount: 1200000 },
-  ],
-  weekly: [
-    { name: "Mon", amount: 1200000 },
-    { name: "Tue", amount: 1450000 },
-    { name: "Wed", amount: 1390000 },
-    { name: "Thu", amount: 1850000 },
-    { name: "Fri", amount: 2450000 },
-    { name: "Sat", amount: 3200000 },
-    { name: "Sun", amount: 3800000 },
-  ],
-  monthly: [
-    { name: "Week 1", amount: 8900000 },
-    { name: "Week 2", amount: 11200000 },
-    { name: "Week 3", amount: 14800000 },
-    { name: "Week 4", amount: 18400000 },
-  ]
-};
 
-const MOCK_STREAM_HISTORY = [
-  { id: "h1", date: "2026-05-18", duration: "02:15:30", views: 4280, likes: 2109, gifts: 85, income: 1540000 },
-  { id: "h2", date: "2026-05-16", duration: "03:40:00", views: 6890, likes: 3840, gifts: 142, income: 2890000 },
-  { id: "h3", date: "2026-05-14", duration: "01:50:15", views: 3100, likes: 1420, gifts: 48, income: 980000 }
-];
-
-const MOCK_CLIPS = [
-  { id: "c1", title: "Sakura Dance Highlight 🌸", duration: "00:45", views: 12400, likes: 8900 },
-  { id: "c2", title: "ASMR Ear Eating Soft Whispers 🎙️", duration: "01:00", views: 18900, likes: 14200 },
-  { id: "c3", title: "Cosplay Cat Ears Sparkle Moment ✨", duration: "00:30", views: 8700, likes: 6200 }
-];
-
-const MOCK_SHOW_REQUESTS = [
-  { id: "sr1", requester: "OtakuKing", type: "Exclusive Dance", duration: "5 min", budget: 350000, status: "pending" },
-  { id: "sr2", requester: "SenpaiMaster", type: "ASMR Whispers", duration: "10 min", budget: 600000, status: "pending" }
-];
 
 export default function HostDashboardPage() {
   const t = useLanguageStore((state) => state.t);
@@ -95,8 +59,20 @@ export default function HostDashboardPage() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "requests" | "settings">("overview");
   const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
-  const [showRequests, setShowRequests] = useState(MOCK_SHOW_REQUESTS);
   
+  // Real API hooks
+  const { data: hostStats } = useHostStats();
+  const { data: revenueData } = useHostRevenue(chartPeriod);
+  const { data: hostClips } = useHostClips();
+  const { data: streamHistory } = useHostHistory();
+  const { data: incomingRequests } = useHostRequests();
+
+  const [showRequests, setShowRequests] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (incomingRequests) setShowRequests(incomingRequests);
+  }, [incomingRequests]);
+
   // Settings form local state
   const [ratePerMin, setRatePerMin] = useState(15000); // IDR per min
   const [allowIncognito, setAllowIncognito] = useState(true);
@@ -634,11 +610,11 @@ export default function HostDashboardPage() {
           {/* Key Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {[
-              { label: "Today's Revenue", value: "Rp1.42M", icon: DollarSign, color: "text-emerald-500 bg-emerald-500/10" },
-              { label: "Total Views", value: "14.2K", icon: Eye, color: "text-sky-500 bg-sky-500/10" },
-              { label: "Total Likes", value: "7.3K", icon: Heart, color: "text-rose-500 bg-rose-500/10" },
-              { label: "Gifts Received", value: "275", icon: Gift, color: "text-amber-500 bg-amber-500/10" },
-              { label: "Subscribers", value: "84", icon: Users, color: "text-violet-500 bg-violet-500/10" },
+              { label: "Today's Revenue", value: `Rp${hostStats?.todayRevenue?.toLocaleString() ?? 0}`, icon: DollarSign, color: "text-emerald-500 bg-emerald-500/10" },
+              { label: "Total Views", value: `${(hostStats?.totalViews ?? 0) / 1000}K`, icon: Eye, color: "text-sky-500 bg-sky-500/10" },
+              { label: "Total Likes", value: `${(hostStats?.totalLikes ?? 0) / 1000}K`, icon: Heart, color: "text-rose-500 bg-rose-500/10" },
+              { label: "Gifts Received", value: hostStats?.giftsReceived?.toString() ?? "0", icon: Gift, color: "text-amber-500 bg-amber-500/10" },
+              { label: "Subscribers", value: hostStats?.subscribers?.toString() ?? "0", icon: Users, color: "text-violet-500 bg-violet-500/10" },
               { 
                 label: t("ai_clip.quota_info", "AI Clip Quota"), 
                 value: activeSubscription ? `${activeSubscription.quotaRemaining}/${activeSubscription.quotaTotal}` : "0", 
@@ -698,7 +674,7 @@ export default function HostDashboardPage() {
               
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={MOCK_REVENUE_CHART[chartPeriod]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart data={revenueData || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorHostRevenue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
@@ -722,7 +698,7 @@ export default function HostDashboardPage() {
                 Latest Generated AI Clips
               </h3>
               <div className="space-y-3">
-                {MOCK_CLIPS.map((clip) => (
+                {(hostClips || []).map((clip) => (
                   <div key={clip.id} className="p-3 bg-background/50 border border-primary/5 rounded-2xl flex items-center justify-between hover:border-primary/20 transition-all">
                     <div>
                       <p className="text-xs font-bold text-foreground">{clip.title}</p>
@@ -762,7 +738,7 @@ export default function HostDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/5 text-sm">
-                {MOCK_STREAM_HISTORY.map((log) => (
+                {(streamHistory || []).map((log) => (
                   <tr key={log.id} className="hover:bg-primary/5 transition-colors">
                     <td className="py-3.5 font-bold">{log.date}</td>
                     <td className="py-3.5 font-semibold text-muted-foreground">{log.duration}</td>

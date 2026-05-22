@@ -107,6 +107,8 @@ export interface Stream {
   mux_asset_id?: string;
   viewers?: number;
   mux_playback_url?: string;
+  format?: "landscape" | "portrait" | "dual";
+  interactive?: boolean;
   host?: UserProfile;
 }
 

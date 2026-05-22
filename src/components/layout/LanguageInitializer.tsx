@@ -4,14 +4,14 @@ import { useEffect } from "react";
 import { useLanguageStore } from "@/store/useLanguageStore";
 
 export default function LanguageInitializer() {
-  const { language, loadTranslations } = useLanguageStore();
+  const { language, setLanguage } = useLanguageStore();
 
   useEffect(() => {
     const init = async () => {
-      await loadTranslations(language);
+      await setLanguage(language);
     };
     void init();
-  }, [language, loadTranslations]);
+  }, [language, setLanguage]);
 
   return null;
 }

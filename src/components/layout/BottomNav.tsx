@@ -3,20 +3,20 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useTranslation } from "react-i18next";
 import { Home, Compass, Wallet, Bell, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const t = useLanguageStore((state) => state.t);
+  const { t } = useTranslation();
 
   const items = [
-    { label: t("nav.home", "Home"), icon: Home, href: "/" },
-    { label: "Jelajah", icon: Compass, href: "/streams" },
-    { label: t("nav.wallet", "Wallet"), icon: Wallet, href: "/dashboard/wallet" },
-    { label: "Notifikasi", icon: Bell, href: "/dashboard/notifications" },
-    { label: t("nav.profile", "Profile"), icon: User, href: "/dashboard/settings" },
+    { label: t("common.nav.home", "Home"), icon: Home, href: "/" },
+    { label: t("common.nav.streams", "Streams"), icon: Compass, href: "/streams" },
+    { label: t("common.nav.wallet", "Wallet"), icon: Wallet, href: "/dashboard/wallet" },
+    { label: t("common.nav.notifications", "Notifications"), icon: Bell, href: "/dashboard/notifications" },
+    { label: t("common.nav.profile", "Profile"), icon: User, href: "/dashboard/settings" },
   ];
 
   return (

@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useStreamStore } from "@/store/useStreamStore";
+import { useStreams } from "@/hooks/useStreams";
 import { useSession } from "@/lib/auth-client";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,12 +33,13 @@ import BottomNav from "@/components/layout/BottomNav";
 
 export default function StreamsPage() {
   const { data: session, isPending: sessionLoading } = useSession();
-  const { streams, fetchStreams, loading, error } = useStreamStore();
-  const t = useLanguageStore((state) => state.t);
+  const { t } = useTranslation();
   
   // Filtering states
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
+
+  const { data: streams, isLoading: loading, error, refetch } = useStreams(activeCategory);
   
   // Advanced filters panel
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -53,12 +54,8 @@ export default function StreamsPage() {
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchStreams(activeCategory);
-  }, [fetchStreams, activeCategory]);
-
   const handleRefresh = () => {
-    fetchStreams(activeCategory);
+    refetch();
     toast.success("Active live stream list refreshed! 🌸");
   };
 
@@ -375,7 +372,7 @@ export default function StreamsPage() {
           <div className="py-16 text-center bg-card border border-rose-500/20 rounded-3xl max-w-md mx-auto space-y-3">
             <AlertTriangle className="h-8 w-8 text-rose-500 mx-auto" />
             <h3 className="text-sm font-black text-rose-500">Failed to fetch streams</h3>
-            <p className="text-xs text-muted-foreground">{error}</p>
+            <p className="text-xs text-muted-foreground">{error as any}</p>
             <Button onClick={handleRefresh} size="sm" className="bg-primary text-primary-foreground text-xs font-bold rounded-xl">Try Again</Button>
           </div>
         ) : paginatedStreams.length === 0 ? (

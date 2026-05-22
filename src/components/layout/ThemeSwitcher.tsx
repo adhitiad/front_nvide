@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useThemeStore, Theme } from "@/store/useThemeStore";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon, Laptop, Sparkles } from "lucide-react";
 
 export default function ThemeSwitcher() {
   const { theme, setTheme } = useThemeStore();
-  const t = useLanguageStore((state) => state.t);
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 

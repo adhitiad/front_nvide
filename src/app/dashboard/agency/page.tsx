@@ -37,7 +37,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import api from "@/lib/api";
+import { 
+  useAgencyStats, 
+  useAgencyRevenue, 
+  useAgencyHosts, 
+  useInviteHost, 
+  useRemoveHost 
+} from "@/hooks/useAgencyDashboard";
 
 // Mock data for Agency
 const MOCK_COMMISSION_DATA = [
@@ -63,7 +69,13 @@ export default function AgencyPage() {
   // Local States
   const [isRegistered, setIsRegistered] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "hosts" | "settings">("overview");
-  const [managedHosts, setManagedHosts] = useState(INITIAL_MANAGED_HOSTS);
+  
+  // Real API hooks
+  const { data: agencyStats } = useAgencyStats();
+  const { data: agencyRevenue } = useAgencyRevenue("monthly");
+  const { data: managedHosts } = useAgencyHosts();
+  const inviteHostMutation = useInviteHost();
+  const removeHostMutation = useRemoveHost();
   
   // Invite Form
   const [inviteUsername, setInviteUsername] = useState("");
@@ -105,30 +117,29 @@ export default function AgencyPage() {
     }
   };
 
-  const handleInviteHost = (e: React.FormEvent) => {
+  const handleInviteHost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteUsername.trim()) {
       toast.error("Host Username cannot be empty!");
       return;
     }
-
-    const newHost = {
-      id: "h_" + Math.random().toString(36).substring(7),
-      username: inviteUsername,
-      realName: inviteUsername.charAt(0).toUpperCase() + inviteUsername.slice(1) + " Senpai",
-      joinedDate: new Date().toISOString().split("T")[0],
-      monthlyRevenue: 0,
-      commissionRate: inviteCommission
-    };
-
-    setManagedHosts([...managedHosts, newHost]);
-    toast.success(`Partnership invitation sent to @${inviteUsername}!`);
-    setInviteUsername("");
+    
+    try {
+      await inviteHostMutation.mutateAsync({ hostUsername: inviteUsername, revenueShare: inviteCommission });
+      toast.success(`Partnership invitation sent to @${inviteUsername}!`);
+      setInviteUsername("");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to invite host");
+    }
   };
 
-  const handleRemoveHost = (hostId: string, username: string) => {
-    setManagedHosts(managedHosts.filter((h) => h.id !== hostId));
-    toast.success(`Removed @${username} from your agency network.`);
+  const handleRemoveHost = async (hostId: string, username: string) => {
+    try {
+      await removeHostMutation.mutateAsync(hostId);
+      toast.success(`Removed @${username} from your agency network.`);
+    } catch (err: any) {
+      toast.error("Failed to remove host");
+    }
   };
 
   const handleSaveSettings = () => {
@@ -139,9 +150,9 @@ export default function AgencyPage() {
     toast.success("Agency settings updated successfully!");
   };
 
-  // Calculate metrics
-  const totalHostRevenue = managedHosts.reduce((acc, curr) => acc + curr.monthlyRevenue, 0);
-  const totalAgencyCommission = managedHosts.reduce((acc, curr) => acc + (curr.monthlyRevenue * (curr.commissionRate / 100)), 0);
+  // Calculate metrics (using API values if available)
+  const totalHostRevenue = agencyStats?.totalHostRevenue ?? 0;
+  const totalAgencyCommission = agencyStats?.totalAgencyCommission ?? 0;
 
   // WIZARD FOR NEW AGENCY REGISTRATION
   if (!isRegistered) {
@@ -389,7 +400,7 @@ export default function AgencyPage() {
             <div className="p-5 bg-card rounded-2xl border border-primary/10 flex items-center justify-between shadow-sm">
               <div>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{t("dashboard.agency.total_hosts", "Total Hosts Managed")}</span>
-                <span className="text-2xl font-black mt-1 text-foreground block">{managedHosts.length}</span>
+                <span className="text-2xl font-black mt-1 text-foreground block">{agencyStats?.totalHosts ?? 0}</span>
               </div>
               <div className="h-11 w-11 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center">
                 <Users className="h-5 w-5" />
@@ -426,7 +437,7 @@ export default function AgencyPage() {
               </h3>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={MOCK_COMMISSION_DATA} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <AreaChart data={agencyRevenue || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorAgencyCommission" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
@@ -506,13 +517,13 @@ export default function AgencyPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/5 text-sm">
-                {managedHosts.map((host) => (
+                {(managedHosts || []).map((host) => (
                   <tr key={host.id} className="hover:bg-primary/5 transition-colors">
                     <td className="py-3.5 font-bold text-primary">@{host.username}</td>
                     <td className="py-3.5 font-semibold text-foreground">{host.realName}</td>
                     <td className="py-3.5 text-xs text-muted-foreground">{host.joinedDate}</td>
                     <td className="py-3.5 font-bold">{host.commissionRate}%</td>
-                    <td className="py-3.5 font-extrabold text-emerald-500">Rp{host.monthlyRevenue.toLocaleString()}</td>
+                    <td className="py-3.5 font-extrabold text-emerald-500">Rp{host.monthlyRevenue?.toLocaleString()}</td>
                     <td className="py-3.5 text-right">
                       <Button 
                         onClick={() => handleRemoveHost(host.id, host.username)}

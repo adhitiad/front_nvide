@@ -26,65 +26,30 @@ export const LANGUAGES: LanguageInfo[] = [
 
 interface LanguageState {
   language: Language;
-  translations: Record<string, any>;
   loading: boolean;
   setLanguage: (lang: Language) => Promise<void>;
-  loadTranslations: (lang: Language) => Promise<void>;
   t: (key: string, defaultText?: string) => string;
 }
-
-// Fallback translations included statically to prevent hydration flicker for common elements
-const fallbackEN: Record<string, any> = {
-  "nav": {
-    "home": "Home",
-    "streams": "Streams",
-    "wallet": "Wallet",
-    "profile": "Profile",
-    "admin": "Admin Panel",
-    "host": "Host Panel",
-    "agency": "Agency Panel"
-  },
-  "theme": {
-    "light": "Sweet Light",
-    "dark": "Neon Dark",
-    "system": "OS Harmony"
-  }
-};
 
 export const useLanguageStore = create<LanguageState>()(
   persist(
     (set, get) => ({
-      language: "en",
-      translations: fallbackEN,
+      language: "id",
       loading: false,
 
       setLanguage: async (lang) => {
-        set({ language: lang });
-        await get().loadTranslations(lang);
-        await i18n.changeLanguage(lang);
-      },
-
-      loadTranslations: async (lang) => {
         set({ loading: true });
         try {
-          const res = await fetch(`/locales/${lang}/common.json`);
-          if (res.ok) {
-            const data = await res.json();
-            i18n.addResourceBundle(lang, "common", data, true, true);
-            await i18n.changeLanguage(lang);
-            set({ translations: data, loading: false });
-          } else {
-            console.error("Failed to load translation file", lang);
-            set({ loading: false });
-          }
+          await i18n.changeLanguage(lang);
+          set({ language: lang, loading: false });
         } catch (e) {
-          console.error("Error fetching translation", e);
+          console.error("Error changing language", e);
           set({ loading: false });
         }
       },
 
       t: (key, defaultText) =>
-        i18n.exists(key, { ns: "common" }) ? i18n.t(key, { ns: "common" }) : (defaultText || key),
+        i18n.exists(key, { ns: "translation" }) ? i18n.t(key, { ns: "translation" }) : (defaultText || key),
     }),
     {
       name: "language-storage",

@@ -119,58 +119,71 @@ export default function WebRTCStreamRoom() {
   useEffect(() => {
     if (!streamId) return;
 
-    let token = "";
-    getAccessToken()
-      .then((t) => { token = t; })
-      .catch(() => console.warn("[WS Rooms] No access token available"));
+    let isMounted = true;
+    let socket: WebSocket | null = null;
 
-    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    const socket = new WebSocket(token
-      ? `${WS_URL}/ws/rooms/${streamId}?token=${encodeURIComponent(token)}`
-      : `${WS_URL}/ws/rooms/${streamId}`);
-    
-    socket.onmessage = (event) => {
+    const connectChat = async () => {
       try {
-        const lines = event.data.split('\n');
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const msg = JSON.parse(line);
-          
-          // Handle Event Moderasi khusus
-          if (msg.type === "message_pinned") {
-            setPinnedMessage(msg.payload?.content);
-          } else if (msg.type === "chat_settings_updated") {
-            setChatSettings({
-              chat_mode: msg.payload?.chat_mode,
-              slow_mode_seconds: msg.payload?.slow_mode_seconds,
-              min_level_to_chat: msg.payload?.min_level_to_chat
-            });
-          } else if (msg.type === "force_disconnect" && currentUserRef.current?.id === msg.payload?.target_user_id) {
-            alert(`Siaran telah dihentikan secara paksa oleh sistem. Alasan: ${msg.payload?.reason || "Pelanggaran aturan keselamatan."}`);
-            handleEndBroadcast();
-            return;
-          }
+        const t = await getAccessToken();
+        if (!isMounted) return;
 
-          setMessages((prev) => [...prev, msg]);
-          
-          // Trigger Hujan Koin jika ada Gift Mahal (> 10rb)
-          if (msg.type === "gift" && (msg.payload?.total_price || 0) >= 10000) {
-            setTriggerCoinRain(true);
-            setTimeout(() => setTriggerCoinRain(false), 5000);
-          }
-        }
+        const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
+        socket = new WebSocket(t
+          ? `${WS_URL}/ws/rooms/${streamId}?token=${encodeURIComponent(t)}`
+          : `${WS_URL}/ws/rooms/${streamId}`);
+        
+        socket.onmessage = (event) => {
+          try {
+            const lines = event.data.split('\n');
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              const msg = JSON.parse(line);
+              
+              // Handle Event Moderasi khusus
+              if (msg.type === "message_pinned") {
+                setPinnedMessage(msg.payload?.content);
+              } else if (msg.type === "chat_settings_updated") {
+                setChatSettings({
+                  chat_mode: msg.payload?.chat_mode,
+                  slow_mode_seconds: msg.payload?.slow_mode_seconds,
+                  min_level_to_chat: msg.payload?.min_level_to_chat
+                });
+              } else if (msg.type === "force_disconnect" && currentUserRef.current?.id === msg.payload?.target_user_id) {
+                alert(`Siaran telah dihentikan secara paksa oleh sistem. Alasan: ${msg.payload?.reason || "Pelanggaran aturan keselamatan."}`);
+                handleEndBroadcast();
+                return;
+              }
 
-        setTimeout(() => {
-          chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
+              setMessages((prev) => [...prev, msg]);
+              
+              // Trigger Hujan Koin jika ada Gift Mahal (> 10rb)
+              if (msg.type === "gift" && (msg.payload?.total_price || 0) >= 10000) {
+                setTriggerCoinRain(true);
+                setTimeout(() => setTriggerCoinRain(false), 5000);
+              }
+            }
+
+            setTimeout(() => {
+              chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+          } catch (err) {
+            console.error("Gagal membaca pesan", err);
+          }
+        };
+
+        wsRef.current = socket;
       } catch (err) {
-        console.error("Gagal membaca pesan", err);
+        console.error("[WS Rooms] Failed to get access token", err);
       }
     };
 
-    wsRef.current = socket;
+    connectChat();
+
     return () => {
-      socket.close();
+      isMounted = false;
+      if (socket) {
+        socket.close();
+      }
     };
   }, [streamId]);
 

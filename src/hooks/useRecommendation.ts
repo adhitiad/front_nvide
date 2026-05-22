@@ -1,17 +1,12 @@
-import { useEffect } from "react";
-import { useRecommendationStore } from "@/store/useRecommendationStore";
+import { useRecommendations } from "./useRecommendations";
 
 export function useRecommendation() {
-  const { recommendedStreams, loading, error, fetchRecommendations } = useRecommendationStore();
-
-  useEffect(() => {
-    fetchRecommendations();
-  }, [fetchRecommendations]);
+  const { data: recommendedStreams = [], isLoading, error, refetch } = useRecommendations();
 
   return {
     recommendedStreams,
-    loading,
-    error,
-    refetch: fetchRecommendations
+    loading: isLoading,
+    error: error?.message || null,
+    refetch
   };
 }

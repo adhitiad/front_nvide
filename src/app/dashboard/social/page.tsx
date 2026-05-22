@@ -106,34 +106,7 @@ export default function SocialPage() {
         const vodList = Array.isArray(vodData) ? vodData : (vodData?.data || []);
         setVods(vodList);
       } catch (vErr) {
-        console.warn("Gagal fetch VODs:", vErr);
-        // Fallback mockup VOD yang sangat premium
-        setVods([
-          {
-            id: "vod-1",
-            user_id: "user-1",
-            title: "NVide Pro Streamer Championship 2026",
-            description: "Rekaman turnamen game e-sports semi-pro malam minggu kemarin bersama tim agency Alpha.",
-            file_path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-            thumbnail_url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop",
-            view_count: 1420,
-            like_count: 532,
-            created_at: new Date().toISOString(),
-            user: { username: "AlphaAgency_Host", avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop" }
-          },
-          {
-            id: "vod-2",
-            user_id: "user-2",
-            title: "ASMR Santai & Obrolan Koin Malam Hari",
-            description: "Live santai mengobrol tentang fitur top up koin crypto dan Duitku yang baru dirilis.",
-            file_path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-            thumbnail_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop",
-            view_count: 980,
-            like_count: 320,
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-            user: { username: "Santi_ASMR", avatar_url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop" }
-          }
-        ]);
+        setVods([]);
       }
 
       // Fetch Stories dari API
@@ -142,32 +115,7 @@ export default function SocialPage() {
         const storiesList = Array.isArray(storiesData) ? storiesData : (storiesData?.data || []);
         setStories(storiesList);
       } catch (sErr) {
-        console.warn("Gagal fetch Stories feed:", sErr);
-        // Fallback mockup Stories premium dengan gambar-gambar indah
-        setStories([
-          {
-            id: "story-1",
-            user_id: "host-1",
-            content: "Latihan nyanyi dulu untuk PK Battle nanti malam! Jangan lupa koinnya ya guys! 🎤👑",
-            media_type: "text",
-            expires_at: new Date(Date.now() + 86400000).toISOString(),
-            view_count: 120,
-            created_at: new Date().toISOString(),
-            username: "Santi_ASMR",
-            avatar_url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop"
-          },
-          {
-            id: "story-2",
-            user_id: "host-2",
-            content: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=600&auto=format&fit=crop",
-            media_type: "image",
-            expires_at: new Date(Date.now() + 86400000).toISOString(),
-            view_count: 340,
-            created_at: new Date().toISOString(),
-            username: "Rian_GamerPro",
-            avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop"
-          }
-        ]);
+        setStories([]);
       }
 
     } catch (err) {

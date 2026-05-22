@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useLanguageStore } from "@/store/useLanguageStore";
+import { useTranslation } from "react-i18next";
 import { useUserStore } from "@/store/useUserStore";
 import { 
   LayoutDashboard, 
@@ -28,7 +28,7 @@ function SidebarContent() {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
   const { user } = useUserStore();
-  const t = useLanguageStore((state) => state.t);
+  const { t } = useTranslation();
 
   const isAdminPanel = pathname.startsWith("/admin");
 
@@ -92,70 +92,69 @@ function SidebarContent() {
     },
   ];
 
-  // Rute untuk Dashboard Kreator / Host / User
   const dashboardRoutes = [
     {
-      label: "Dashboard",
+      label: t("common.nav.dashboard", "Dashboard"),
       icon: LayoutDashboard,
       href: "/dashboard",
       color: "text-pink-500",
     },
     {
-      label: "Live Streams",
+      label: t("common.nav.streams", "Live Streams"),
       icon: Video,
       href: "/dashboard/streams",
       color: "text-violet-500",
     },
     {
-      label: "Bookings",
+      label: t("common.nav.bookings", "Bookings"),
       icon: Calendar,
       href: "/dashboard/bookings",
       color: "text-indigo-500",
     },
     {
-      label: "Host Panel",
+      label: t("common.nav.host", "Host Panel"),
       icon: Play,
       href: "/dashboard/host",
       color: "text-rose-500",
     },
     {
-      label: "Host Payout",
+      label: t("common.nav.hostPayout", "Host Payout"),
       icon: Wallet,
       href: "/dashboard/host/payout",
       color: "text-emerald-500",
     },
     {
-      label: "Agency Partner",
+      label: t("common.nav.agency", "Agency Partner"),
       icon: Building2,
       href: "/dashboard/agency",
       color: "text-amber-500",
     },
     {
-      label: "Agency Payout",
+      label: t("common.nav.agencyPayout", "Agency Payout"),
       icon: Wallet,
       href: "/dashboard/agency/payout",
       color: "text-emerald-500",
     },
     {
-      label: "Messages (DM)",
+      label: t("common.nav.messages", "Messages (DM)"),
       icon: MessageSquare,
       href: "/dashboard/chat",
       color: "text-sky-500",
     },
     {
-      label: "Social / Story",
+      label: t("common.nav.social", "Social / Story"),
       icon: Users,
       href: "/dashboard/social",
       color: "text-teal-500",
     },
     {
-      label: "Wallet",
+      label: t("common.nav.wallet", "Wallet"),
       icon: Wallet,
       href: "/dashboard/wallet",
       color: "text-emerald-500",
     },
     {
-      label: "Settings",
+      label: t("common.nav.settings", "Settings"),
       icon: Settings,
       href: "/dashboard/settings",
       color: "text-slate-500",

@@ -1,16 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "NVide Live",
@@ -18,10 +7,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
+import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import LanguageInitializer from "@/components/layout/LanguageInitializer";
 import ThemeInitializer from "@/components/layout/ThemeInitializer";
 import PWARegister from "@/components/layout/PWARegister";
+import BottomNavigation from "@/components/layout/BottomNavigation";
+import QueryProvider from "@/components/providers/QueryProvider";
 
 export default function RootLayout({
   children,
@@ -31,13 +23,22 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans antialiased">
+      <body className="min-h-full flex flex-col bg-slate-900 text-foreground font-sans antialiased">
         <ThemeInitializer />
         <PWARegister />
         <LanguageInitializer />
-        {children}
+        
+        {/* Responsive Container — full-width on all screens */}
+        <div className="flex-1 w-full max-w-7xl mx-auto bg-background min-h-screen relative overflow-x-hidden">
+          <QueryProvider>
+            {children}
+            <BottomNavigation />
+          </QueryProvider>
+        </div>
+        
         <Toaster position="top-center" richColors />
       </body>
     </html>

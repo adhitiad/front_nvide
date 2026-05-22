@@ -6,12 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Globe } from "lucide-react";
 
 export default function LanguageSwitcher() {
-  const { language, setLanguage, loadTranslations } = useLanguageStore();
+  const { language, setLanguage } = useLanguageStore();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     // Initial translation load
-    loadTranslations(language);
+    setLanguage(language);
   }, []);
 
   const currentLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
