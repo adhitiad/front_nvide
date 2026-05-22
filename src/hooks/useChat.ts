@@ -14,7 +14,6 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
   const addChatMessage = useStreamStore((state) => state.addChatMessage);
   const setViewerCount = useStreamStore((state) => state.setViewerCount);
   const setLikes = useStreamStore((state) => state.setLikes);
-  const updateUserXP = useStreamStore((state) => state.updateUserXP);
 
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -175,7 +174,6 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
 
           case "xp_update": {
             if (payload.user_id === userId) {
-              updateUserXP(payload.xp, payload.level, payload.xp_next);
               toast.success(`Level Up! Selamat Anda naik ke Level ${payload.level}!`);
             }
             break;
@@ -204,7 +202,7 @@ export function useChat({ streamId, userId, username }: UseChatOptions) {
     ws.onerror = (err) => {
       console.error("[WebSocket Chat] Error terjadi:", err);
     };
-  }, [streamId, addChatMessage, setViewerCount, setLikes, updateUserXP, userId]);
+  }, [streamId, addChatMessage, setViewerCount, setLikes, userId]);
 
   useEffect(() => {
     connect();

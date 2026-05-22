@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import api from "@/lib/api";
-import { Stream } from "./useStreamStore";
+import { Stream } from "@/lib/types/api";
 
 interface RecommendationState {
   recommendedStreams: Stream[];

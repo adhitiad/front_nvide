@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Stream } from "@/store/useStreamStore";
+import { Stream } from "@/lib/types/api";
 
 export function useRecommendations() {
   return useQuery<Stream[], Error>({
